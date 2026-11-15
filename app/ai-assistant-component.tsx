@@ -55,6 +55,7 @@ export function AIAssistantScreen({
   onGoToActions: () => void;
 }) {
   const isTamil = lang === "ta-IN";
+  const isHindi = lang === "hi-IN";
   const [bills] = useState<Bill[]>(() => getSavedBills());
   const [products] = useState<Product[]>(() => getSavedProducts());
   const [inputText, setInputText] = useState("");
@@ -99,19 +100,23 @@ export function AIAssistantScreen({
 
   const currentHour = useMemo(() => new Date().getHours(), []);
 
-  const initialReport = useMemo(() => {
-    return analyzeStoreBills(bills, "2026-11-15", products, weather, currentHour).fullReportTa;
-  }, [bills, products, weather, currentHour]);
-
   const [messages, setMessages] = useState<Message[]>(() => [
     {
       id: "welcome",
       sender: "ai",
-      title: isTamil
-        ? "வணக்கம்! DukaanPulse AI வணிக உதவியாளர் தயார்."
-        : "Welcome! DukaanPulse AI Store Assistant is ready.",
-      text: initialReport,
-      timestamp: "இன்று",
+      title:
+        isTamil
+          ? "வணக்கம்! DukaanPulse AI வணிக உதவியாளர் & முடிவுகள் தயார்."
+          : isHindi
+            ? "नमस्ते! DukaanPulse सर्वम AI व्यापार सहायक और निर्णय तैयार हैं।"
+            : "Welcome! DukaanPulse Sarvam AI Store Assistant & Decisions are ready.",
+      text:
+        isTamil
+          ? "நேரடி வானிலை, 6 நாள் விற்பனை போக்கு மற்றும் நேரத்தைக் கணித்து உங்கள் கடையின் லாபத்தை உயர்த்த நான் வழிகாட்டுகிறேன். என்ன கேட்க விரும்புகிறீர்கள்?"
+          : isHindi
+            ? "लाइव मौसम, 6-दिवसीय बिक्री रिपोर्ट और समय के आधार पर मैं आपकी दुकान की बिक्री बढ़ाने में मदद करूँगा। आप क्या पूछना चाहते हैं?"
+            : "Powered by live weather, 6-day sales trends, and time-of-day analytics to boost your store's profit. How can I help you today?",
+      timestamp: isTamil ? "இன்று" : isHindi ? "आज" : "Today",
       topic: "general",
     },
   ]);
@@ -172,7 +177,7 @@ export function AIAssistantScreen({
         onend: () => void;
       };
 
-      recognition.lang = "ta-IN"; // Tamil India
+      recognition.lang = lang; // Matches active language
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
@@ -216,7 +221,7 @@ export function AIAssistantScreen({
       id: `user_msg_${count}`,
       sender: "user",
       text: q,
-      timestamp: "இப்போது",
+      timestamp: isTamil ? "இப்போது" : isHindi ? "अभी" : "Just now",
     };
 
     const reply = answerStoreAIQuestion(
@@ -226,22 +231,23 @@ export function AIAssistantScreen({
       products,
       weather,
       currentHour,
+      lang,
     );
 
     const aiMsg: Message = {
       id: `ai_msg_${count}`,
       sender: "ai",
       title: reply.title,
-      text: reply.answerTa,
-      timestamp: "இப்போது",
+      text: reply.activeAnswer,
+      timestamp: isTamil ? "இப்போது" : isHindi ? "अभी" : "Just now",
       topic: reply.topic,
     };
 
     setMessages((prev) => [...prev, userMsg, aiMsg]);
     setInputText("");
 
-    // Read answer out loud using Tamil TTS
-    handlePlayTTS(reply.answerTa);
+    // Read answer out loud using TTS in active language
+    handlePlayTTS(aiMsg.text);
   };
 
   // Text-To-Speech (TTS)
@@ -251,6 +257,7 @@ export function AIAssistantScreen({
       textToSpeak,
       () => setIsSpeaking(true),
       () => setIsSpeaking(false),
+      lang,
     );
   };
 
@@ -272,20 +279,30 @@ export function AIAssistantScreen({
           <div>
             <h1 className="ai-title">
               {isTamil
-                ? "DukaanPulse AI வணிக உதவியாளர்"
-                : "DukaanPulse AI Store Assistant"}
+                ? "DukaanPulse AI வணிக உதவியாளர் & முடிவுகள்"
+                : isHindi
+                  ? "DukaanPulse AI व्यापार सहायक और निर्णय"
+                  : "DukaanPulse AI Store Assistant & Decisions"}
             </h1>
             <p className="ai-subtitle">
               {isTamil
-                ? "விற்பனை சரிவு ஆய்வு, நேரச் சாளர பரிசோதனை (DukaanPulse Feature) மற்றும் தமிழ் குரல் உரையாடல்."
-                : "Real-time sales dip diagnostics, time-window dip analysis, and Tamil voice conversation."}
+                ? "விற்பனை சரிவு ஆய்வு, நேரச் சாளர பரிசோதனை (DukaanPulse Feature), சர்வம் AI முடிவெடுத்தல் மற்றும் குரல் உரையாடல்."
+                : isHindi
+                  ? "बिक्री मंदी विश्लेषण, समय-खिड़की जांच, सर्वम AI रणनीतिक निर्णय और वॉइस बातचीत।"
+                  : "Real-time sales dip diagnostics, time-window dip analysis, Sarvam AI decisions, and voice conversation."}
             </p>
           </div>
         </div>
 
         <div className="ai-status-pill">
           <span className="live-dot"></span>
-          <span>Sarvam AI & Grounded Tamil Voice Active</span>
+          <span>
+            {isTamil
+              ? "Sarvam AI & நேரடி குரல் இணைக்கப்பட்டுள்ளது"
+              : isHindi
+                ? "Sarvam AI और लाइव आवाज़ सक्रिय है"
+                : "Sarvam AI & Neural Voice Active"}
+          </span>
         </div>
       </div>
 
@@ -314,8 +331,8 @@ export function AIAssistantScreen({
               <span className="live-dot"></span>
               <span>
                 {weather.source === "online"
-                  ? isTamil ? "நேரடி ஆன்லைன் தகவல்" : "Live Online Data"
-                  : isTamil ? "பரிசோதனை வானிலை" : "Simulated Weather"}
+                  ? isTamil ? "நேரடி ஆன்லைன் தகவல்" : isHindi ? "लाइव ऑनलाइन डेटा" : "Live Online Data"
+                  : isTamil ? "பரிசோதனை வானிலை" : isHindi ? "सिम्युलेटेड मौसम" : "Simulated Weather"}
               </span>
             </span>
             <button
@@ -325,26 +342,26 @@ export function AIAssistantScreen({
               style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
             >
               <RefreshCw size={12} className={weatherLoading ? "spin" : ""} />
-              <span>{isTamil ? "ஆன்லைன் புதுப்பி" : "Sync Live"}</span>
+              <span>{isTamil ? "ஆன்லைன் புதுப்பி" : isHindi ? "लाइव सिंक करें" : "Sync Live"}</span>
             </button>
           </div>
         </div>
 
         {/* Climate Metrics Row */}
         <div className="weather-meta-row">
-          <span>💧 {isTamil ? "ஈரப்பதம்:" : "Humidity:"} <strong>{weather.humidity}%</strong></span>
-          <span>🌧️ {isTamil ? "மழை அளவு:" : "Rainfall:"} <strong>{weather.precipitationMm} mm</strong></span>
-          <span>💨 {isTamil ? "காற்று வேகம்:" : "Wind:"} <strong>{weather.windSpeedKmH} km/h</strong></span>
+          <span>💧 {isTamil ? "ஈரப்பதம்:" : isHindi ? "नमी:" : "Humidity:"} <strong>{weather.humidity}%</strong></span>
+          <span>🌧️ {isTamil ? "மழை அளவு:" : isHindi ? "वर्षा:" : "Rainfall:"} <strong>{weather.precipitationMm} mm</strong></span>
+          <span>💨 {isTamil ? "காற்று வேகம்:" : isHindi ? "हवा की गति:" : "Wind:"} <strong>{weather.windSpeedKmH} km/h</strong></span>
           <span>
-            ⏰ {isTamil ? "இயக்க நேரம்:" : "Time Window:"}{" "}
+            ⏰ {isTamil ? "இயக்க நேரம்:" : isHindi ? "समय चक्र:" : "Time Window:"}{" "}
             <strong>
               {currentHour < 11
-                ? (isTamil ? "காலை வேளை (07:00 - 11:00)" : "Morning Rush (07-11)")
+                ? (isTamil ? "காலை வேளை (07:00 - 11:00)" : isHindi ? "सुबह का समय (07:00 - 11:00)" : "Morning Rush (07-11)")
                 : currentHour < 15
-                ? (isTamil ? "மதிய மந்தமான வேளை (11:00 - 15:00)" : "Afternoon Slump (11-15)")
+                ? (isTamil ? "மதிய மந்தமான வேளை (11:00 - 15:00)" : isHindi ? "दोपहर की मंदी (11:00 - 15:00)" : "Afternoon Slump (11-15)")
                 : currentHour < 19
-                ? (isTamil ? "மாலை பீக் வேளை (15:00 - 19:00)" : "Evening Rush (15-19)")
-                : (isTamil ? "இரவு வேளை (19:00 - 22:00)" : "Night (19-22)")}
+                ? (isTamil ? "மாலை பீக் வேளை (15:00 - 19:00)" : isHindi ? "शाम का पीक समय (15:00 - 19:00)" : "Evening Rush (15-19)")
+                : (isTamil ? "இரவு வேளை (19:00 - 22:00)" : isHindi ? "रात का समय (19:00 - 22:00)" : "Night (19-22)")}
             </strong>
           </span>
         </div>
@@ -352,14 +369,14 @@ export function AIAssistantScreen({
         {/* Weather Preset Selector Bar */}
         <div className="weather-presets-bar">
           <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>
-            {isTamil ? "வானிலை மாதிரி தேர்வு:" : "Test Weather:"}
+            {isTamil ? "வானிலை மாதிரி தேர்வு:" : isHindi ? "मौसम परीक्षण:" : "Test Weather:"}
           </span>
           {[
-            { id: "online", label: isTamil ? "🌐 நேரடி ஆன்லைன்" : "🌐 Live Online" },
-            { id: "rain", label: "🌧️ மழை / குளிர் (Rainy)" },
-            { id: "hot", label: "☀️ கடும் வெயில் (Hot Summer)" },
-            { id: "cloudy", label: "⛅ மேகமூட்டம் (Cloudy)" },
-            { id: "pleasant", label: "🍃 மிதமான இதமான (Pleasant)" },
+            { id: "online", label: isTamil ? "🌐 நேரடி ஆன்லைன்" : isHindi ? "🌐 लाइव ऑनलाइन" : "🌐 Live Online" },
+            { id: "rain", label: isTamil ? "🌧️ மழை / குளிர்" : isHindi ? "🌧️ बारिश / ठंड" : "🌧️ Rainy / Cool" },
+            { id: "hot", label: isTamil ? "☀️ கடும் வெயில்" : isHindi ? "☀️ भीषण गर्मी" : "☀️ Hot Summer" },
+            { id: "cloudy", label: isTamil ? "⛅ மேகமூட்டம்" : isHindi ? "⛅ बादल छाए हुए" : "⛅ Overcast Cloudy" },
+            { id: "pleasant", label: isTamil ? "🍃 மிதமான இதமான" : isHindi ? "🍃 सुहावना मौसम" : "🍃 Pleasant Breeze" },
           ].map((preset) => (
             <button
               key={preset.id}
@@ -380,7 +397,7 @@ export function AIAssistantScreen({
           <p className="weather-advice-text">{analysis.weatherAdvice.adviceText}</p>
           <div className="recommended-items-row">
             <span style={{ fontWeight: 700, color: "#166534" }}>
-              {isTamil ? "பரிந்துரைக்கப்படும் பொருட்கள்:" : "High-Demand Items:"}
+              {isTamil ? "பரிந்துரைக்கப்படும் பொருட்கள்:" : isHindi ? "अनुशंसित उच्च मांग वाले सामान:" : "High-Demand Items:"}
             </span>
             {analysis.weatherAdvice.recommendedItems.map((item, idx) => (
               <span key={idx} className="rec-item-badge">
@@ -401,13 +418,17 @@ export function AIAssistantScreen({
             <span>
               {isTamil
                 ? "6 நாள் விற்பனை அறிக்கைகளின் ஒப்பீடு (6 Sales Reports Trend)"
-                : "6-Day Sales Reports Performance Trend"}
+                : isHindi
+                  ? "6-दिवसीय बिक्री रिपोर्ट और रुझान"
+                  : "6-Day Sales Reports Performance Trend"}
             </span>
           </h3>
           <div style={{ fontSize: 12, color: "#64748b" }}>
             {isTamil
               ? `6 நாள் மொத்த வசூல்: ₹${analysis.total6DayRevenue} | தினசரி சராசரி: ₹${analysis.avg6DayDailyRevenue}`
-              : `Total 6-Day Revenue: ₹${analysis.total6DayRevenue} | Daily Avg: ₹${analysis.avg6DayDailyRevenue}`}
+              : isHindi
+                ? `6-दिन कुल राजस्व: ₹${analysis.total6DayRevenue} | दैनिक औसत: ₹${analysis.avg6DayDailyRevenue}`
+                : `Total 6-Day Revenue: ₹${analysis.total6DayRevenue} | Daily Avg: ₹${analysis.avg6DayDailyRevenue}`}
           </div>
         </div>
 
@@ -415,13 +436,86 @@ export function AIAssistantScreen({
           {analysis.sixDayReports.map((r, i) => (
             <div key={i} className={`day-box ${r.date === "2026-11-15" ? "is-today" : ""}`}>
               <span className="day-date">
-                {r.date === "2026-11-15" ? (isTamil ? "இன்று (15 Nov)" : "Today") : r.date.slice(5)}
+                {r.date === "2026-11-15"
+                  ? isTamil ? "இன்று (15 Nov)" : isHindi ? "आज (15 Nov)" : "Today (15 Nov)"
+                  : r.date.slice(5)}
               </span>
               <strong className="day-rev">₹{r.revenue}</strong>
               <small className="day-sub">{r.billsCount} bills</small>
               <small style={{ fontSize: 9.5, color: "#0284c7", fontWeight: 600 }}>
                 {r.topItem}
               </small>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* SARVAM AI STRATEGIC DECISION ENGINE                    */}
+      {/* ======================================================== */}
+      <div className="sarvam-decision-panel">
+        <div className="sarvam-decision-header">
+          <div className="decision-header-left">
+            <span className="paytm-brand-tag">Paytm Merchant AI Decision Engine</span>
+            <h2>
+              {isTamil
+                ? "💡 சர்வம் AI வணிக முடிவுகள் (Sarvam Decision Engine)"
+                : isHindi
+                  ? "💡 सर्वम AI रणनीतिक निर्णय (Decision Engine)"
+                  : "💡 Sarvam AI Store Strategic Decisions"}
+            </h2>
+            <p>
+              {isTamil
+                ? "நேரடி வானிலை, 6 நாள் விற்பனைப் போக்கு மற்றும் மந்தமான நேரத்தைக் கணித்து உருவாக்கப்பட்ட தானியங்கி முடிவுகள்."
+                : isHindi
+                  ? "लाइव मौसम, 6-दिवसीय बिक्री रुझान और मंदी के समय के आधार पर स्वतः उत्पन्न रणनीतिक निर्णय।"
+                  : "Actionable store strategies powered by real-time climate, 6-day sales velocity, and peak/slump intervals."}
+            </p>
+          </div>
+        </div>
+
+        <div className="sarvam-decision-cards-grid">
+          {analysis.decisions.map((dec) => (
+            <div key={dec.id} className={`sarvam-decision-card priority-${dec.priority}`}>
+              <div className="decision-card-top">
+                <span className="decision-icon">{dec.icon}</span>
+                <span className={`decision-badge badge-${dec.priority}`}>
+                  {isTamil ? dec.badgeTa : isHindi ? dec.badgeHi : dec.badgeEn}
+                </span>
+                <button
+                  className="decision-listen-btn"
+                  title="Listen via Sarvam AI"
+                  onClick={() =>
+                    handlePlayTTS(
+                      isTamil ? dec.voiceTextTa : isHindi ? dec.voiceTextHi : dec.voiceTextEn,
+                    )
+                  }
+                >
+                  <Volume2 size={16} />
+                  <span>{isTamil ? "கேட்க" : isHindi ? "सुनें" : "Listen"}</span>
+                </button>
+              </div>
+
+              <h3 className="decision-title">
+                {isTamil ? dec.titleTa : isHindi ? dec.titleHi : dec.titleEn}
+              </h3>
+              <p className="decision-context">
+                {isTamil ? dec.contextTa : isHindi ? dec.contextHi : dec.contextEn}
+              </p>
+              <div className="decision-recommendation-box">
+                <Sparkles size={16} className="text-cyan" />
+                <p>{isTamil ? dec.recommendationTa : isHindi ? dec.recommendationHi : dec.recommendationEn}</p>
+              </div>
+              <div className="decision-footer">
+                <div className="decision-impact">
+                  <small>{isTamil ? "எதிர்பார்க்கப்படும் பலன்:" : isHindi ? "अनुमानित लाभ:" : "Projected Impact:"}</small>
+                  <strong>{isTamil ? dec.projectedImpactTa : isHindi ? dec.projectedImpactHi : dec.projectedImpactEn}</strong>
+                </div>
+                <button className="decision-action-btn" onClick={onGoToActions}>
+                  <span>{isTamil ? dec.actionLabelTa : isHindi ? dec.actionLabelHi : dec.actionLabelEn}</span>
+                  <ArrowRight size={14} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -438,18 +532,28 @@ export function AIAssistantScreen({
               <h3>
                 {isTamil
                   ? "நேரச் சாளர விற்பனை சரிவு ஆய்வு (DukaanPulse Time-Window Dips)"
-                  : "Time-Window Sales Dip Diagnostics"}
+                  : isHindi
+                    ? "समय-अवधि बिक्री गिरावट विश्लेषण (DukaanPulse Time-Window Dips)"
+                    : "Time-Window Sales Dip Diagnostics"}
               </h3>
               <p>
                 {isTamil
                   ? "ஒவ்வொரு நேரத்திலும் முந்தைய சராசரியை விட விற்பனை எவ்வளவு குறைந்துள்ளது (சரிவு) என்பதை AI கண்டறிந்துள்ளது."
-                  : "Detects time-window transaction drops against historical medians to flag revenue leaks."}
+                  : isHindi
+                    ? "प्रत्येक समय-अवधि में पिछले औसत की तुलना में बिक्री में कितनी गिरावट आई है, AI ने इसका विश्लेषण किया है।"
+                    : "Detects time-window transaction drops against historical medians to flag revenue leaks."}
               </p>
             </div>
           </div>
           <button className="goto-actions-pill" onClick={onGoToActions}>
             <SlidersHorizontal size={15} />
-            <span>{isTamil ? "காம்போ சலுகை உருவாக்குக" : "Create Combo Offer"}</span>
+            <span>
+              {isTamil
+                ? "காம்போ சலுகை உருவாக்குக"
+                : isHindi
+                  ? "कॉम्बो ऑफर बनाएं"
+                  : "Create Combo Offer"}
+            </span>
             <ArrowRight size={15} />
           </button>
         </div>
@@ -462,42 +566,79 @@ export function AIAssistantScreen({
               className={`window-card ${win.isFlagged ? "flagged-window" : ""}`}
             >
               <div className="window-header">
-                <strong>{win.windowLabel}</strong>
+                <strong>
+                  {isTamil
+                    ? win.windowLabelTa || win.windowLabel
+                    : isHindi
+                      ? win.windowLabelHi || win.windowLabel
+                      : win.windowLabelEn || win.windowLabel}
+                </strong>
                 {win.isFlagged ? (
                   <span className="dip-badge">
                     <AlertTriangle size={13} />
-                    {win.dipPercent}% {isTamil ? "சரிவு!" : "Dip!"}
+                    {win.dipPercent}%{" "}
+                    {isTamil ? "சரிவு!" : isHindi ? "गिरावट!" : "Dip!"}
                   </span>
                 ) : (
                   <span className="normal-badge">
                     <CheckCircle2 size={13} />
-                    {isTamil ? "சீர்" : "Normal"}
+                    {isTamil ? "சீர்" : isHindi ? "सामान्य" : "Normal"}
                   </span>
                 )}
               </div>
 
               <div className="window-counts-row">
                 <div>
-                  <small>{isTamil ? "இன்று பில்கள்" : "Today Bills"}</small>
+                  <small>
+                    {isTamil
+                      ? "இன்று பில்கள்"
+                      : isHindi
+                        ? "आज के बिल"
+                        : "Today Bills"}
+                  </small>
                   <strong>{win.todayCount}</strong>
                 </div>
                 <div className="count-divider">vs</div>
                 <div>
-                  <small>{isTamil ? "முந்தைய சராசரி" : "Past Median"}</small>
+                  <small>
+                    {isTamil
+                      ? "முந்தைய சராசரி"
+                      : isHindi
+                        ? "पिछला औसत"
+                        : "Past Median"}
+                  </small>
                   <strong>{win.historicalMedianCount}</strong>
                 </div>
                 <div className="window-rev">
-                  <small>{isTamil ? "இன்று வசூல்" : "Revenue"}</small>
+                  <small>
+                    {isTamil
+                      ? "இன்று வசூல்"
+                      : isHindi
+                        ? "आज का राजस्व"
+                        : "Revenue"}
+                  </small>
                   <strong>₹{win.todayRevenue}</strong>
                 </div>
               </div>
 
               <div className="window-status-text">
-                <p>{win.statusTa}</p>
+                <p>
+                  {isTamil
+                    ? win.statusTa
+                    : isHindi
+                      ? win.statusHi
+                      : win.statusEn}
+                </p>
                 {win.isFlagged && (
                   <div className="ai-rec-box">
                     <Zap size={14} className="rec-icon" />
-                    <span>{win.recommendationTa}</span>
+                    <span>
+                      {isTamil
+                        ? win.recommendationTa
+                        : isHindi
+                          ? win.recommendationHi
+                          : win.recommendationEn}
+                    </span>
                   </div>
                 )}
               </div>
@@ -511,40 +652,86 @@ export function AIAssistantScreen({
       {/* ======================================================== */}
       <div className="ai-kpis-row">
         <div className="ai-kpi-card">
-          <span className="kpi-tag">{isTamil ? "இன்றைய விற்பனை" : "Today Sales"}</span>
+          <span className="kpi-tag">
+            {isTamil
+              ? "இன்றைய விற்பனை"
+              : isHindi
+                ? "आज की कुल बिक्री"
+                : "Today Sales"}
+          </span>
           <strong className="kpi-big text-cyan">₹{analysis.todayRevenue}</strong>
-          <small>{analysis.todayBillsCount} {isTamil ? "பில்கள் போடப்பட்டுள்ளன" : "bills recorded"}</small>
+          <small>
+            {analysis.todayBillsCount}{" "}
+            {isTamil
+              ? "பில்கள் போடப்பட்டுள்ளன"
+              : isHindi
+                ? "बिल दर्ज किए गए"
+                : "bills recorded"}
+          </small>
         </div>
 
         <div className={`ai-kpi-card ${analysis.isDayDip ? "kpi-alert" : "kpi-success"}`}>
           <span className="kpi-tag">
-            {isTamil ? "நேற்றுடன் ஒப்பீடு (விற்பனை சரிவு)" : "Comparison vs Yesterday"}
+            {isTamil
+              ? "நேற்றுடன் ஒப்பீடு (விற்பனை சரிவு)"
+              : isHindi
+                ? "कल से तुलना (बिक्री गिरावट)"
+                : "Comparison vs Yesterday"}
           </span>
           <strong className="kpi-big">
             {analysis.isDayDip ? (
               <span className="text-red">
-                -₹{Math.abs(analysis.dayOverDayDeltaRevenue)} ({analysis.dayOverDayDipPercent}% {isTamil ? "குறைவு" : "Dip"})
+                -₹{Math.abs(analysis.dayOverDayDeltaRevenue)} (
+                {analysis.dayOverDayDipPercent}%{" "}
+                {isTamil ? "குறைவு" : isHindi ? "गिरावट" : "Dip"})
               </span>
             ) : (
               <span className="text-green">
-                +₹{analysis.dayOverDayDeltaRevenue} ({isTamil ? "அதிகம்" : "Growth"})
+                +₹{analysis.dayOverDayDeltaRevenue} (
+                {isTamil ? "அதிகம்" : isHindi ? "वृद्धि" : "Growth"})
               </span>
             )}
           </strong>
           <small>
-            {isTamil ? `நேற்றைய வசூல்: ₹${analysis.yesterdayRevenue}` : `Yesterday: ₹${analysis.yesterdayRevenue}`}
+            {isTamil
+              ? `நேற்றைய வசூல்: ₹${analysis.yesterdayRevenue}`
+              : isHindi
+                ? `कल की बिक्री: ₹${analysis.yesterdayRevenue}`
+                : `Yesterday: ₹${analysis.yesterdayRevenue}`}
           </small>
         </div>
 
         <div className="ai-kpi-card">
-          <span className="kpi-tag">{isTamil ? "அதிகம் விற்ற பொருள்" : "Top Item"}</span>
+          <span className="kpi-tag">
+            {isTamil
+              ? "அதிகம் விற்ற பொருள்"
+              : isHindi
+                ? "शीर्ष बिकने वाला उत्पाद"
+                : "Top Item"}
+          </span>
           <strong className="kpi-big text-navy">
-            {analysis.topProduct ? analysis.topProduct.nameTa : "—"}
+            {analysis.topProduct
+              ? isTamil
+                ? analysis.topProduct.nameTa
+                : isHindi
+                  ? analysis.topProduct.nameHi || analysis.topProduct.name
+                  : analysis.topProduct.name
+              : "—"}
           </strong>
           <small>
             {analysis.topProduct
-              ? `${analysis.topProduct.units} ${isTamil ? "எண்ணிக்கை" : "sold"} (₹${analysis.topProduct.revenue})`
-              : "பதிவு இல்லை"}
+              ? `${analysis.topProduct.units} ${
+                  isTamil
+                    ? "எண்ணிக்கை"
+                    : isHindi
+                      ? "पीस"
+                      : "sold"
+                } (₹${analysis.topProduct.revenue})`
+              : isTamil
+                ? "பதிவு இல்லை"
+                : isHindi
+                  ? "कोई डेटा नहीं"
+                  : "No record"}
           </small>
         </div>
       </div>
@@ -560,12 +747,16 @@ export function AIAssistantScreen({
               <h3>
                 {isTamil
                   ? "AI வணிக உதவியாளருடன் குரல் உரையாடல்"
-                  : "Conversational Store Assistant"}
+                  : isHindi
+                    ? "AI व्यापार सहायक के साथ वॉयस बातचीत"
+                    : "Conversational Store Assistant"}
               </h3>
               <p>
                 {isTamil
-                  ? "மைக் பட்டனை அழுத்தி தமிழில் பேசலாம்; AI பதில்களை தமிழ் குரலில் பேசிப் புரியவைக்கும்."
-                  : "Speak in Tamil using microphone; AI understands and replies aloud."}
+                  ? "மைக் பட்டனை அழுத்தி தமிழில் பேசலாம்; சர்வம் AI பதில்களை குரலில் பேசிப் புரியவைக்கும்."
+                  : isHindi
+                    ? "माइक दबाकर हिंदी में बोलें; सर्वम AI बोलकर जवाब देगा।"
+                    : "Speak using microphone; Sarvam AI understands and replies aloud."}
               </p>
             </div>
           </div>
@@ -574,12 +765,22 @@ export function AIAssistantScreen({
             {isSpeaking ? (
               <button className="tts-stop-btn" onClick={handleStopTTS}>
                 <VolumeX size={16} />
-                <span>{isTamil ? "குரலை நிறுத்துக" : "Stop Speech"}</span>
+                <span>
+                  {isTamil
+                    ? "குரலை நிறுத்துக"
+                    : isHindi
+                      ? "ध्वनि रोकें"
+                      : "Stop Speech"}
+                </span>
               </button>
             ) : (
               <span className="tts-hint">
                 <Volume2 size={16} />
-                {isTamil ? "குரல் அறிவிப்பு தயார்" : "Voice Ready"}
+                {isTamil
+                  ? "குரல் அறிவிப்பு தயார்"
+                  : isHindi
+                    ? "ध्वनि उद्घोषणा तैयार"
+                    : "Voice Ready"}
               </span>
             )}
           </div>
@@ -588,32 +789,84 @@ export function AIAssistantScreen({
         {/* Quick Voice Question Chips */}
         <div className="quick-query-chips">
           <span className="chips-label">
-            {isTamil ? "உடனடிக் கேள்விகள்:" : "Quick Queries:"}
+            {isTamil
+              ? "உடனடிக் கேள்விகள்:"
+              : isHindi
+                ? "त्वरित प्रश्न:"
+                : "Quick Queries:"}
           </span>
           {[
             {
-              label: isTamil ? "🌤️ வானிலைக்கேற்ப என்ன விற்கலாம்?" : "Weather Demand",
-              q: "இன்றைய வானிலை மற்றும் தட்பவெப்பத்திற்கு என்ன விற்கலாம்?",
+              label: isTamil
+                ? "🌤️ வானிலைக்கேற்ப என்ன விற்கலாம்?"
+                : isHindi
+                  ? "🌤️ मौसम अनुसार क्या बेचें?"
+                  : "🌤️ Weather Demand",
+              q: isTamil
+                ? "இன்றைய வானிலை மற்றும் தட்பவெப்பத்திற்கு என்ன விற்கலாம்?"
+                : isHindi
+                  ? "आज के मौसम और तापमान के अनुसार क्या बेचना चाहिए?"
+                  : "What should we sell based on today's weather?",
             },
             {
-              label: isTamil ? "🤖 நேரடி வழிகாட்டி (Smart Guide)" : "Store Guide",
-              q: "இன்றைய நேரடி வழிகாட்டி உதவி சொல்லுங்கள்",
+              label: isTamil
+                ? "💡 சர்வம் AI முடிவுகள் & தீர்வுகள்"
+                : isHindi
+                  ? "💡 सर्वम AI रणनीतिक निर्णय"
+                  : "💡 Sarvam AI Decisions",
+              q: isTamil
+                ? "கடைக்கான சர்வம் AI முடிவுகள் மற்றும் வழிகாட்டுதல் என்ன?"
+                : isHindi
+                  ? "दुकान के लिए सर्वम AI के रणनीतिक निर्णय और मार्गदर्शन क्या हैं?"
+                  : "What are the Sarvam AI actionable store decisions?",
             },
             {
-              label: isTamil ? "📊 6 நாள் விற்பனை அறிக்கை" : "6-Day Report",
-              q: "6 நாள் விற்பனை அறிக்கை விவரம் கொடுங்கள்",
+              label: isTamil
+                ? "📊 6 நாள் விற்பனை அறிக்கை"
+                : isHindi
+                  ? "📊 6-दिवसीय बिक्री रिपोर्ट"
+                  : "📊 6-Day Sales Report",
+              q: isTamil
+                ? "6 நாள் விற்பனை அறிக்கை விவரம் கொடுங்கள்"
+                : isHindi
+                  ? "पिछले 6 दिनों की बिक्री रिपोर्ट का विवरण दें"
+                  : "Provide the 6-day sales trend and breakdown",
             },
             {
-              label: isTamil ? "⏰ எந்த நேரத்துல சேல்ஸ் சரிந்தது?" : "Time Window Dip",
-              q: "எந்த நேரத்தில் விற்பனை சரிந்தது அல்லது மந்தமாக இருந்தது?",
+              label: isTamil
+                ? "⏰ எந்த நேரத்துல சேல்ஸ் சரிந்தது?"
+                : isHindi
+                  ? "⏰ किस समय बिक्री मंद रही?"
+                  : "⏰ Time Window Dip",
+              q: isTamil
+                ? "எந்த நேரத்தில் விற்பனை சரிந்தது அல்லது மந்தமாக இருந்தது?"
+                : isHindi
+                  ? "किस समय बिक्री सबसे कम या मंद रही?"
+                  : "Which time window experienced a sales dip?",
             },
             {
-              label: isTamil ? "📉 நேற்றை விட எவ்வளவு கம்மியாச்சு?" : "Sales Dip",
-              q: "நேற்றை விட இன்று எவ்வளவு கம்மியாகியுள்ளது?",
+              label: isTamil
+                ? "📉 நேற்றை விட எவ்வளவு கம்மியாச்சு?"
+                : isHindi
+                  ? "📉 कल से कितनी गिरावट हुई?"
+                  : "📉 Sales Dip vs Yesterday",
+              q: isTamil
+                ? "நேற்றை விட இன்று எவ்வளவு கம்மியாகியுள்ளது?"
+                : isHindi
+                  ? "कल की तुलना में आज कितनी बिक्री कम हुई?"
+                  : "How much did sales dip compared to yesterday?",
             },
             {
-              label: isTamil ? "🛍️ அதிகம் விற்ற பொருள் எது?" : "Top Items",
-              q: "எந்த பொருள் அதிகம் மற்றும் குறைவாக விற்றது?",
+              label: isTamil
+                ? "🛍️ அதிகம் விற்ற பொருள் எது?"
+                : isHindi
+                  ? "🛍️ सबसे अधिक बिकने वाला उत्पाद?"
+                  : "🛍️ Top Items",
+              q: isTamil
+                ? "எந்த பொருள் அதிகம் மற்றும் குறைவாக விற்றது?"
+                : isHindi
+                  ? "कौन से उत्पाद सबसे अधिक और सबसे कम बिके?"
+                  : "Which items had the highest and lowest sales?",
             },
           ].map((item, i) => (
             <button
@@ -640,7 +893,12 @@ export function AIAssistantScreen({
                   </span>
                 ) : (
                   <span className="sender-tag user-tag">
-                    <User size={14} /> {isTamil ? "வணிகர் (நீங்கள்)" : "You"}
+                    <User size={14} />{" "}
+                    {isTamil
+                      ? "வணிகர் (நீங்கள்)"
+                      : isHindi
+                        ? "व्यापारी (आप)"
+                        : "You (Merchant)"}
                   </span>
                 )}
                 <span className="bubble-time">{m.timestamp}</span>
@@ -656,7 +914,13 @@ export function AIAssistantScreen({
                     onClick={() => handlePlayTTS(m.text)}
                   >
                     <Volume2 size={15} />
-                    <span>{isTamil ? "தமிழில் கேட்க" : "Listen in Tamil"}</span>
+                    <span>
+                      {isTamil
+                        ? "தமிழில் கேட்க"
+                        : isHindi
+                          ? "हिंदी में सुनें"
+                          : "Listen in Voice"}
+                    </span>
                   </button>
                   {m.topic === "time_window" && (
                     <button
@@ -664,7 +928,13 @@ export function AIAssistantScreen({
                       onClick={onGoToActions}
                     >
                       <SlidersHorizontal size={14} />
-                      <span>{isTamil ? "சலுகை உருவாக்குக" : "Create Offer"}</span>
+                      <span>
+                        {isTamil
+                          ? "சலுகை உருவாக்குக"
+                          : isHindi
+                            ? "ऑफर बनाएं"
+                            : "Create Offer"}
+                      </span>
                     </button>
                   )}
                 </div>
@@ -682,8 +952,16 @@ export function AIAssistantScreen({
             onClick={toggleListening}
             title={
               isListening
-                ? "கேட்கிறது... பேசவும்"
-                : "குரல் மூலம் பேச மைக் அழுத்தவும்"
+                ? isTamil
+                  ? "கேட்கிறது... பேசவும்"
+                  : isHindi
+                    ? "सुन रहे हैं... बोलें"
+                    : "Listening... speak now"
+                : isTamil
+                  ? "குரல் மூலம் பேச மைக் அழுத்தவும்"
+                  : isHindi
+                    ? "बोलने के लिए माइक दबाएं"
+                    : "Press mic to speak"
             }
           >
             {isListening ? (
@@ -702,10 +980,14 @@ export function AIAssistantScreen({
               isListening
                 ? isTamil
                   ? "கேட்கிறது... தமிழில் பேசவும்..."
-                  : "Listening... speak now in Tamil..."
+                  : isHindi
+                    ? "सुन रहे हैं... हिंदी में बोलिए..."
+                    : "Listening... speak now..."
                 : isTamil
                   ? "கேள்வி கேளுங்கள் (எ.கா: நேற்றை விட எவ்வளவு கம்மியாச்சு?)..."
-                  : "Ask AI (e.g. How much dip vs yesterday?)..."
+                  : isHindi
+                    ? "AI से पूछें (उदा: कल से कितनी बिक्री कम हुई?)..."
+                    : "Ask AI (e.g. How much did sales dip vs yesterday?)..."
             }
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}

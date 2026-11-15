@@ -10,17 +10,22 @@
   font-display: swap;
 }
 :root {
-  --navy: #102c40;
-  --deep: #0c2333;
-  --cyan: #007b94;
-  --bright: #03bbd8;
-  --lime: #b9ec68;
-  --bg: #f5f7f8;
-  --border: #e0e7ea;
-  --muted: #617583;
-  --ink: #153247;
+  --navy: #002e6e;
+  --deep: #00224f;
+  --cyan: #00baf2;
+  --bright: #00baf2;
+  --lime: #00baf2;
+  --paytm-navy: #002e6e;
+  --paytm-cyan: #00baf2;
+  --paytm-dark: #00224f;
+  --paytm-light: #ebf8fe;
+  --paytm-green: #00b060;
+  --bg: #f4f7fb;
+  --border: #e2e8f0;
+  --muted: #64748b;
+  --ink: #0f172a;
   --white: #fff;
-  --amber: #8d4c08;
+  --amber: #d97706;
   font-family: "DM Sans", NotoHindi, NotoTamil, sans-serif;
   color: var(--ink);
   background: var(--bg);
@@ -124,13 +129,29 @@ main:focus {
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;
-  width: 234px;
+  width: 240px;
+  height: 100vh;
   background: var(--deep);
   color: #b2c4ce;
   display: flex;
   flex-direction: column;
-  padding: 31px 17px 20px;
-  z-index: 20;
+  padding: 24px 14px 20px;
+  z-index: 100;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-shadow: 2px 0 12px rgba(0, 34, 79, 0.15);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 186, 242, 0.25) transparent;
+}
+.sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(0, 186, 242, 0.25);
+  border-radius: 4px;
 }
 .logo {
   display: flex;
@@ -138,43 +159,49 @@ main:focus {
   gap: 10px;
   text-decoration: none;
   color: white;
-  padding: 0 10px;
+  padding: 0 8px;
   font-family: Manrope, sans-serif;
-  font-size: 23px;
+  font-size: 22px;
   font-weight: 800;
-  letter-spacing: -1px;
+  letter-spacing: -0.8px;
+  flex-shrink: 0;
 }
 .logo-light {
-  font-weight: 500;
+  font-weight: 700;
+  color: var(--cyan);
 }
 .logo small {
   display: block;
-  font-size: 7px;
-  letter-spacing: 1.8px;
-  color: #9ab4c2;
-  font-weight: 500;
-  line-height: 2.5;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: #7dd3fc;
+  font-weight: 700;
+  line-height: 2.2;
 }
 .logo-symbol {
-  width: 35px;
-  height: 40px;
-  color: var(--lime);
+  width: 38px;
+  height: 38px;
+  color: var(--cyan);
   display: grid;
   place-items: center;
-  border: 1px solid #436253;
+  border: 1px solid rgba(0, 186, 242, 0.35);
+  background: rgba(0, 186, 242, 0.1);
   border-radius: 10px;
+  box-shadow: 0 0 12px rgba(0, 186, 242, 0.15);
 }
 .workspace-label {
   font-size: 10px;
-  letter-spacing: 1.7px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #809eaf;
-  padding: 44px 14px 14px;
+  color: #7ba3be;
+  padding: 24px 12px 10px;
+  flex-shrink: 0;
 }
 .sidebar nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 .nav-item {
   width: 100%;
@@ -183,40 +210,47 @@ main:focus {
   gap: 12px;
   border: 0;
   background: transparent;
-  color: #aac0cb;
+  color: #c5d9e8;
   text-align: left;
   font-size: 12px;
-  line-height: 1.65;
+  line-height: 1.45;
   font-weight: 500;
-  padding: 14px 13px;
-  min-height: 48px;
-  border-radius: 7px;
-  transition:
-    background 0.15s,
-    color 0.15s;
+  padding: 11px 12px;
+  min-height: 42px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
 }
 .nav-item:hover {
-  background: #173548;
-  color: #fff;
+  background: #00336d;
+  color: #ffffff;
 }
 .nav-item.active {
-  color: #d1f79c;
-  background: #28433c;
-  box-shadow: inset 3px 0 0 var(--lime);
+  color: #ffffff;
+  background: #003b82;
+  box-shadow: inset 3px 0 0 var(--cyan);
+  font-weight: 600;
 }
 .nav-item svg {
   flex-shrink: 0;
+  color: #7dd3fc;
+}
+.nav-item.active svg {
+  color: var(--cyan);
 }
 .nav-badge {
   margin-left: auto;
   font-size: 10px;
-  border: 1px solid #486456;
+  border: 1px solid #0284c7;
+  background: rgba(0, 186, 242, 0.15);
+  color: #7dd3fc;
   border-radius: 4px;
-  padding: 0 4px;
+  padding: 0 5px;
 }
 .sidebar-bottom {
   margin-top: auto;
-  padding-top: 40px;
+  padding-top: 30px;
+  padding-bottom: 24px;
+  flex-shrink: 0;
 }
 .pilot-note {
   border: 1px solid #2c4556;
@@ -2023,12 +2057,13 @@ html[lang="hi-IN"] .button {
     position: fixed;
     inset: auto 0 0 0;
     width: 100%;
-    height: auto;
+    height: 64px;
     padding: 0;
-    background: #fff;
+    background: #ffffff;
     color: var(--ink);
-    border-top: 1px solid #d5e2e8;
-    z-index: 30;
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -2px 12px rgba(0, 41, 112, 0.1);
+    z-index: 999;
   }
   .sidebar .logo,
   .workspace-label,
@@ -2038,11 +2073,14 @@ html[lang="hi-IN"] .button {
   .sidebar nav {
     display: flex;
     flex-direction: row;
+    width: 100%;
+    height: 100%;
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     gap: 4px;
-    padding: 6px 10px;
+    padding: 4px 8px;
     align-items: center;
   }
   .sidebar nav::-webkit-scrollbar {
@@ -2055,13 +2093,13 @@ html[lang="hi-IN"] .button {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 8px 6px;
+    gap: 3px;
+    padding: 6px 4px;
     border-radius: 8px;
     text-align: center;
     font-size: 11px !important;
-    min-height: 58px;
-    line-height: 1.25;
+    min-height: 54px;
+    line-height: 1.2;
     color: #64748b;
     white-space: normal;
   }
@@ -2075,12 +2113,16 @@ html[lang="hi-IN"] .button {
     height: 18px;
     width: 18px;
     flex-shrink: 0;
+    color: #64748b;
   }
   .nav-item.active {
-    background: #e0f2fe;
-    color: #0369a1;
+    background: #ebf8fe;
+    color: #002e6e;
     font-weight: 700;
-    box-shadow: inset 0 2px 0 #0284c7;
+    box-shadow: inset 0 2px 0 #00baf2;
+  }
+  .nav-item.active svg {
+    color: #00baf2;
   }
   .nav-badge {
     display: none !important;
@@ -2088,7 +2130,7 @@ html[lang="hi-IN"] .button {
   .main-wrap {
     width: 100%;
     margin-left: 0;
-    padding-bottom: 72px;
+    padding-bottom: 84px;
   }
   .topbar {
     height: 76px;
@@ -4960,6 +5002,178 @@ html[lang="hi-IN"] .button {
   }
 }
 
+/* ======================================================== */
+/* PAYTM MERCHANT - SARVAM AI DECISION ENGINE */
+/* ======================================================== */
+.sarvam-decision-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+  margin: 24px 0;
+  box-shadow: 0 4px 20px rgba(0, 46, 110, 0.06);
+}
+.sarvam-decision-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.paytm-brand-tag {
+  display: inline-block;
+  background: #ebf8fe;
+  color: #002e6e;
+  border: 1px solid #bae6fd;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.sarvam-decision-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.sarvam-decision-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+}
+.sarvam-decision-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 46, 110, 0.08);
+  border-color: #00baf2;
+}
+.sarvam-decision-card.priority-high {
+  border-left: 4px solid #f59e0b;
+}
+.sarvam-decision-card.priority-medium {
+  border-left: 4px solid #00baf2;
+}
+.sarvam-decision-card.priority-opportunity {
+  border-left: 4px solid #00b060;
+}
+.decision-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.decision-icon {
+  font-size: 24px;
+}
+.decision-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-right: auto;
+}
+.badge-high {
+  background: #fef3c7;
+  color: #b45309;
+}
+.badge-medium {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.badge-opportunity {
+  background: #dcfce7;
+  color: #15803d;
+}
+.decision-listen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #00baf2;
+  background: #ffffff;
+  color: #002e6e;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.decision-listen-btn:hover {
+  background: #ebf8fe;
+}
+.decision-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #002e6e;
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+.decision-context {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+.decision-recommendation-box {
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  flex: 1;
+}
+.decision-recommendation-box p {
+  font-size: 12px;
+  color: #1e293b;
+  line-height: 1.5;
+  margin: 0;
+}
+.decision-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+.decision-impact small {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+}
+.decision-impact strong {
+  display: block;
+  font-size: 12.5px;
+  color: #00b060;
+}
+.decision-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #002e6e;
+  color: #ffffff;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.decision-action-btn:hover {
+  background: #003b8e;
+  transform: translateX(2px);
+}
+
 /* ==========================================================================
    Live Climate & Weather Retail Guide Widget Styles
    ========================================================================== */
@@ -5185,14 +5399,14 @@ html[lang="hi-IN"] .button {
     bottom: 74px;
     left: 12px;
     right: 12px;
-    background: #0284c7;
+    background: linear-gradient(135deg, #002e6e 0%, #00baf2 100%);
     color: #ffffff;
     border-radius: 12px;
     padding: 12px 18px;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 4px 16px rgba(2, 132, 199, 0.4);
-    z-index: 25;
+    box-shadow: 0 4px 16px rgba(0, 46, 110, 0.35);
+    z-index: 990;
     font-weight: 700;
     font-size: 14px;
     cursor: pointer;
@@ -5206,6 +5420,178 @@ html[lang="hi-IN"] .button {
     width: 100%;
     margin: 12px 0;
   }
+}
+
+/* ======================================================== */
+/* PAYTM MERCHANT - SARVAM AI DECISION ENGINE */
+/* ======================================================== */
+.sarvam-decision-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+  margin: 24px 0;
+  box-shadow: 0 4px 20px rgba(0, 46, 110, 0.06);
+}
+.sarvam-decision-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.paytm-brand-tag {
+  display: inline-block;
+  background: #ebf8fe;
+  color: #002e6e;
+  border: 1px solid #bae6fd;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.sarvam-decision-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.sarvam-decision-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+}
+.sarvam-decision-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 46, 110, 0.08);
+  border-color: #00baf2;
+}
+.sarvam-decision-card.priority-high {
+  border-left: 4px solid #f59e0b;
+}
+.sarvam-decision-card.priority-medium {
+  border-left: 4px solid #00baf2;
+}
+.sarvam-decision-card.priority-opportunity {
+  border-left: 4px solid #00b060;
+}
+.decision-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.decision-icon {
+  font-size: 24px;
+}
+.decision-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-right: auto;
+}
+.badge-high {
+  background: #fef3c7;
+  color: #b45309;
+}
+.badge-medium {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.badge-opportunity {
+  background: #dcfce7;
+  color: #15803d;
+}
+.decision-listen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #00baf2;
+  background: #ffffff;
+  color: #002e6e;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.decision-listen-btn:hover {
+  background: #ebf8fe;
+}
+.decision-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #002e6e;
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+.decision-context {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+.decision-recommendation-box {
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  flex: 1;
+}
+.decision-recommendation-box p {
+  font-size: 12px;
+  color: #1e293b;
+  line-height: 1.5;
+  margin: 0;
+}
+.decision-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+.decision-impact small {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+}
+.decision-impact strong {
+  display: block;
+  font-size: 12.5px;
+  color: #00b060;
+}
+.decision-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #002e6e;
+  color: #ffffff;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.decision-action-btn:hover {
+  background: #003b8e;
+  transform: translateX(2px);
 }
 
 @media (max-width: 480px) {

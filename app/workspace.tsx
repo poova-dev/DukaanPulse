@@ -436,7 +436,7 @@ export default function Workspace() {
             </span>
             <span>
               Dukaan<span className="logo-light">Pulse</span>
-              <small>THE DAILY BUSINESS PULSE</small>
+              <small>PAYTM MERCHANT POS & AI</small>
             </span>
           </a>
           <div className="workspace-label">{t("Merchant workspace")}</div>

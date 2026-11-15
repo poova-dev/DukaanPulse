@@ -11,6 +11,7 @@ export type Product = {
   id: string;
   name: string; // English
   nameTa: string; // Tamil
+  nameHi?: string; // Hindi
   price: number; // in Rupees
   category: ProductCategory;
   emoji: string;
@@ -20,6 +21,7 @@ export type BillItem = {
   productId: string;
   name: string;
   nameTa: string;
+  nameHi?: string;
   price: number; // in Rupees
   quantity: number;
   itemTotal: number; // in Rupees
@@ -43,6 +45,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p1",
     name: "Masala Tea",
     nameTa: "மசாலா டீ",
+    nameHi: "मसाला चाय",
     price: 12,
     category: "tea_coffee",
     emoji: "☕",
@@ -51,6 +54,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p2",
     name: "Filter Coffee",
     nameTa: "ஃபில்டர் காபி",
+    nameHi: "फ़िल्टर कॉफ़ी",
     price: 15,
     category: "tea_coffee",
     emoji: "☕",
@@ -59,6 +63,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p3",
     name: "Ginger Tea",
     nameTa: "இஞ்சி டீ",
+    nameHi: "अदरक चाय",
     price: 15,
     category: "tea_coffee",
     emoji: "🫖",
@@ -67,6 +72,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p4",
     name: "Medu Vada",
     nameTa: "மெது வடை",
+    nameHi: "मेदु वड़ा",
     price: 10,
     category: "snacks",
     emoji: "🥯",
@@ -75,6 +81,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p5",
     name: "Samosa",
     nameTa: "சமோசா",
+    nameHi: "समोसा",
     price: 15,
     category: "snacks",
     emoji: "🥟",
@@ -83,6 +90,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p6",
     name: "Veg Puffs",
     nameTa: "காய்கறி பப்ஸ்",
+    nameHi: "वेज पफ़्स",
     price: 20,
     category: "bakery_tiffin",
     emoji: "🥐",
@@ -91,6 +99,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p7",
     name: "Egg Puffs",
     nameTa: "முட்டை பப்ஸ்",
+    nameHi: "अंडा पफ़्स",
     price: 25,
     category: "bakery_tiffin",
     emoji: "🥐",
@@ -99,6 +108,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p8",
     name: "Bun Butter Jam",
     nameTa: "பன் பட்டர் ஜாம்",
+    nameHi: "बन बटर जैम",
     price: 25,
     category: "bakery_tiffin",
     emoji: "🍞",
@@ -107,6 +117,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p9",
     name: "Badam Milk",
     nameTa: "பாதாம் பால்",
+    nameHi: "बादाम दूध",
     price: 25,
     category: "drinks",
     emoji: "🥛",
@@ -115,6 +126,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p10",
     name: "Banana Bonda",
     nameTa: "வாழைக்காய் போண்டா",
+    nameHi: "केला बोंडा",
     price: 10,
     category: "snacks",
     emoji: "🍘",
@@ -123,6 +135,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p11",
     name: "Idli (2 pcs)",
     nameTa: "இட்லி (2)",
+    nameHi: "इडली (2 पीस)",
     price: 30,
     category: "bakery_tiffin",
     emoji: "🥟",
@@ -131,6 +144,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     id: "p12",
     name: "Mineral Water",
     nameTa: "தண்ணீர் பாட்டில்",
+    nameHi: "मिनरल वाटर",
     price: 20,
     category: "drinks",
     emoji: "💧",
@@ -155,6 +169,25 @@ export const CATEGORY_LABELS: Record<
   },
   other: { en: "Other Items", ta: "மற்ற பொருட்கள்", hi: "अन्य वस्तुएं" },
 };
+
+export function getProductName(
+  product: { name: string; nameTa?: string; nameHi?: string },
+  lang: "en-IN" | "hi-IN" | "ta-IN",
+): string {
+  if (lang === "ta-IN" && product.nameTa) return product.nameTa;
+  if (lang === "hi-IN" && product.nameHi) return product.nameHi;
+  return product.name;
+}
+
+export function getCategoryLabel(
+  category: ProductCategory,
+  lang: "en-IN" | "hi-IN" | "ta-IN",
+): string {
+  const c = CATEGORY_LABELS[category] || CATEGORY_LABELS.other;
+  if (lang === "ta-IN") return c.ta;
+  if (lang === "hi-IN") return c.hi;
+  return c.en;
+}
 
 export const PAYTM_DEFAULT_CONFIG = {
   upiId: "paytmqr2810050501011@paytm",
@@ -731,6 +764,7 @@ export function speakTamil(
   text: string,
   onStart?: () => void,
   onEnd?: () => void,
+  lang: "en-IN" | "hi-IN" | "ta-IN" = "ta-IN",
 ): void {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     if (onEnd) onEnd();
@@ -740,17 +774,18 @@ export function speakTamil(
   window.speechSynthesis.cancel(); // cancel any ongoing speech
   const utterance = new SpeechSynthesisUtterance(text);
 
-  // Try finding a Tamil voice (ta-IN or ta)
+  // Try finding matching language voice (ta, hi, en)
   const voices = window.speechSynthesis.getVoices();
-  const tamilVoice =
-    voices.find((v) => v.lang.startsWith("ta")) ||
+  const langPrefix = lang === "hi-IN" ? "hi" : lang === "en-IN" ? "en" : "ta";
+  const matchedVoice =
+    voices.find((v) => v.lang.toLowerCase().startsWith(langPrefix)) ||
     voices.find((v) => v.lang.includes("IN")) ||
     null;
 
-  if (tamilVoice) {
-    utterance.voice = tamilVoice;
+  if (matchedVoice) {
+    utterance.voice = matchedVoice;
   }
-  utterance.lang = "ta-IN";
+  utterance.lang = lang;
   utterance.rate = 0.95; // slightly slower for maximum clarity
   utterance.pitch = 1.0;
 

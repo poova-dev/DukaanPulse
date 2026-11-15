@@ -33,38 +33,57 @@ test("analyzeStoreBills accurately calculates today sales, yesterday dip, and ti
   // Weather & Climate Integration
   assert.ok(analysis.weatherReportTa.includes("வானிலை"));
   assert.ok(analysis.weatherAdvice.recommendedItems.length > 0);
+
+  // Sarvam AI Decision Engine
+  assert.ok(analysis.decisions.length >= 3, "Should generate Sarvam AI actionable decisions");
+  const deadHourDec = analysis.decisions.find((d) => d.category === "dead_hour");
+  assert.ok(deadHourDec, "Should include a dead-hour recovery decision");
+  assert.ok(deadHourDec.titleTa.length > 0);
+  assert.ok(deadHourDec.titleHi.length > 0);
+  assert.ok(deadHourDec.titleEn.length > 0);
+  assert.ok(deadHourDec.projectedImpactTa.length > 0);
 });
 
-test("answerStoreAIQuestion handles Tamil questions for dip, time slump, and products", () => {
+test("answerStoreAIQuestion handles Tamil, Hindi, and English multilingual questions", () => {
   const seedBills = generateSeedBills();
 
-  // Test weather query
-  const weatherReply = answerStoreAIQuestion("இன்றைய வானிலைக்கு என்ன விற்கலாம்?", seedBills, "2026-11-15");
+  // Test weather query in Tamil
+  const weatherReply = answerStoreAIQuestion("இன்றைய வானிலைக்கு என்ன விற்கலாம்?", seedBills, "2026-11-15", DEFAULT_PRODUCTS, undefined, undefined, "ta-IN");
   assert.equal(weatherReply.topic, "weather");
-  assert.ok(weatherReply.answerTa.includes("வானிலை"));
+  assert.ok(weatherReply.activeAnswer.includes("வானிலை"));
+
+  // Test weather query in Hindi
+  const weatherReplyHi = answerStoreAIQuestion("आज के मौसम के अनुसार क्या बेचना चाहिए?", seedBills, "2026-11-15", DEFAULT_PRODUCTS, undefined, undefined, "hi-IN");
+  assert.equal(weatherReplyHi.topic, "weather");
+  assert.ok(weatherReplyHi.activeAnswer.includes("मौसम"));
+
+  // Test Sarvam decisions query in Hindi
+  const decReplyHi = answerStoreAIQuestion("दुकान के लिए सर्वम AI के रणनीतिक निर्णय क्या हैं?", seedBills, "2026-11-15", DEFAULT_PRODUCTS, undefined, undefined, "hi-IN");
+  assert.equal(decReplyHi.topic, "decision");
+  assert.ok(decReplyHi.activeAnswer.includes("सर्वम AI"));
 
   // Test 6-day sales report query
-  const sixDayReply = answerStoreAIQuestion("6 நாள் விற்பனை அறிக்கை விவரம் கொடுங்கள்", seedBills, "2026-11-15");
+  const sixDayReply = answerStoreAIQuestion("6 நாள் விற்பனை அறிக்கை விவரம் கொடுங்கள்", seedBills, "2026-11-15", DEFAULT_PRODUCTS, undefined, undefined, "ta-IN");
   assert.equal(sixDayReply.topic, "six_day_report");
-  assert.ok(sixDayReply.answerTa.includes("6 நாட்"));
+  assert.ok(sixDayReply.activeAnswer.includes("6 நாட்"));
 
   // Test Smart Store Guide query
-  const guideReply = answerStoreAIQuestion("இன்றைய நேரடி வழிகாட்டி உதவி சொல்லுங்கள்", seedBills, "2026-11-15");
+  const guideReply = answerStoreAIQuestion("இன்றைய நேரடி வழிகாட்டி உதவி சொல்லுங்கள்", seedBills, "2026-11-15", DEFAULT_PRODUCTS, undefined, undefined, "ta-IN");
   assert.equal(guideReply.topic, "guide");
-  assert.ok(guideReply.answerTa.includes("வழிகாட்டி"));
+  assert.ok(guideReply.activeAnswer.includes("வழிகாட்டி"));
 
   // Test dip query
-  const dipReply = answerStoreAIQuestion("நேற்றை விட இன்று எவ்வளவு கம்மியா இருக்கு?", seedBills, "2026-11-15");
+  const dipReply = answerStoreAIQuestion("நேற்றை விட இன்று எவ்வளவு கம்மியா இருக்கு?", seedBills, "2026-11-15", DEFAULT_PRODUCTS, undefined, undefined, "ta-IN");
   assert.equal(dipReply.topic, "dip");
-  assert.ok(dipReply.answerTa.includes("சரிவு") || dipReply.answerTa.includes("குறைவு"));
+  assert.ok(dipReply.activeAnswer.includes("சரிவு") || dipReply.activeAnswer.includes("குறைவு"));
 
   // Test time window query
-  const timeReply = answerStoreAIQuestion("எந்த நேரத்துல சேல்ஸ் ரொம்ப கம்மியா ஆச்சு?", seedBills, "2026-11-15");
+  const timeReply = answerStoreAIQuestion("எந்த நேரத்துல சேல்ஸ் ரொம்ப கம்மியா ஆச்சு?", seedBills, "2026-11-15", DEFAULT_PRODUCTS, undefined, undefined, "ta-IN");
   assert.equal(timeReply.topic, "time_window");
-  assert.ok(timeReply.answerTa.includes("மந்தமான") || timeReply.answerTa.includes("சரிவு"));
+  assert.ok(timeReply.activeAnswer.includes("மந்தமான") || timeReply.activeAnswer.includes("சரிவு"));
 
   // Test product query
-  const prodReply = answerStoreAIQuestion("டீ எவ்வளவு விற்றது?", seedBills, "2026-11-15");
+  const prodReply = answerStoreAIQuestion("டீ எவ்வளவு விற்றது?", seedBills, "2026-11-15", DEFAULT_PRODUCTS, undefined, undefined, "ta-IN");
   assert.equal(prodReply.topic, "products");
-  assert.ok(prodReply.answerTa.includes("மசாலா டீ") || prodReply.answerTa.includes("பொருட்கள்"));
+  assert.ok(prodReply.activeAnswer.includes("மசாலா டீ") || prodReply.activeAnswer.includes("பொருட்கள்"));
 });

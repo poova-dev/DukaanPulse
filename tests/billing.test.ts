@@ -5,15 +5,28 @@ import {
   generateSeedBills,
   computeSalesAnalytics,
   buildPaytmUPIUrl,
+  getProductName,
+  getCategoryLabel,
 } from "../lib/billing";
 
-test("DEFAULT_PRODUCTS has necessary products with Tamil names and categories", () => {
+test("DEFAULT_PRODUCTS has necessary products with Tamil and Hindi names and categories", () => {
   assert.ok(DEFAULT_PRODUCTS.length >= 10);
   const tea = DEFAULT_PRODUCTS.find((p) => p.id === "p1");
   assert.ok(tea);
   assert.equal(tea.name, "Masala Tea");
   assert.equal(tea.nameTa, "மசாலா டீ");
+  assert.equal(tea.nameHi, "मसाला चाय");
   assert.equal(tea.price, 12);
+
+  // Test multilingual helper getProductName
+  assert.equal(getProductName(tea, "ta-IN"), "மசாலா டீ");
+  assert.equal(getProductName(tea, "hi-IN"), "मसाला चाय");
+  assert.equal(getProductName(tea, "en-IN"), "Masala Tea");
+
+  // Test multilingual category labels
+  assert.equal(getCategoryLabel("tea_coffee", "ta-IN"), "டீ & காபி");
+  assert.equal(getCategoryLabel("tea_coffee", "hi-IN"), "चाय और कॉफ़ी");
+  assert.equal(getCategoryLabel("tea_coffee", "en-IN"), "Tea & Coffee");
 });
 
 test("buildPaytmUPIUrl generates standard UPI payment link", () => {

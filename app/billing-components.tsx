@@ -16,7 +16,10 @@ import {
   playPaytmChime,
   speakTamil,
   PAYTM_DEFAULT_CONFIG,
+  getProductName,
+  getCategoryLabel,
 } from "@/lib/billing";
+import { analyzeStoreBills, SarvamDecision } from "@/lib/ai-assistant";
 import {
   Plus,
   Trash2,
@@ -198,7 +201,7 @@ export function BillingScreen({
     // 1. Play authentic Paytm Soundbox chime
     playPaytmChime();
 
-    // 2. Play Tamil Voice Announcement
+    // 2. Play Voice Announcement in selected language
     setIsSpeaking(true);
     const speechText = isTamil
       ? `Paytm-இல் ${billTotalAmount} ரூபாய் பெறப்பட்டது! நன்றி!`
@@ -210,6 +213,7 @@ export function BillingScreen({
       speechText,
       () => setIsSpeaking(true),
       () => setIsSpeaking(false),
+      lang,
     );
 
     // 3. Save completed bill to repository
@@ -274,11 +278,11 @@ export function BillingScreen({
             onClick={() => setShowAddProductModal(true)}
           >
             <Plus size={16} />
-            <span>{isTamil ? "பொருள் சேர்க்க" : "Add Product"}</span>
+            <span>{isTamil ? "பொருள் சேர்க்க" : isHindi ? "उत्पाद जोड़ें" : "Add Product"}</span>
           </button>
           <button className="primary-btn" onClick={onGoToAnalytics}>
             <TrendingUp size={16} />
-            <span>{isTamil ? "விற்பனை பகுப்பாய்வு" : "Sales Analytics"}</span>
+            <span>{isTamil ? "விற்பனை பகுப்பாய்வு" : isHindi ? "बिक्री विश्लेषण" : "Sales Analytics"}</span>
           </button>
         </div>
       </div>
@@ -295,7 +299,9 @@ export function BillingScreen({
                 placeholder={
                   isTamil
                     ? "பொருள் தேடுக (டீ, வடை, காபி...)"
-                    : "Search items (Tea, Vada, Coffee...)"
+                    : isHindi
+                      ? "उत्पाद खोजें (चाय, समोसा, कॉफ़ी...)"
+                      : "Search items (Tea, Vada, Coffee...)"
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -330,9 +336,7 @@ export function BillingScreen({
                   className={`cat-chip ${selectedCategory === cat ? "active" : ""}`}
                   onClick={() => setSelectedCategory(cat)}
                 >
-                  {isTamil
-                    ? CATEGORY_LABELS[cat].ta
-                    : CATEGORY_LABELS[cat].en}
+                  {getCategoryLabel(cat, lang)}
                 </button>
               ))}
             </div>
@@ -356,10 +360,10 @@ export function BillingScreen({
                   <div className="product-emoji">{p.emoji}</div>
                   <div className="product-details">
                     <strong className="product-name">
-                      {isTamil ? p.nameTa : p.name}
+                      {getProductName(p, lang)}
                     </strong>
                     <span className="product-alt-name">
-                      {isTamil ? p.name : p.nameTa}
+                      {lang === "ta-IN" ? p.name : lang === "hi-IN" ? p.name : p.nameTa}
                     </span>
                     <div className="product-price-row">
                       <span className="product-price">₹{p.price}</span>
@@ -379,7 +383,7 @@ export function BillingScreen({
           <div className="cart-header">
             <div className="cart-title-row">
               <ShoppingCart size={18} />
-              <h2>{isTamil ? "தற்போதைய பில்" : "Current Bill"}</h2>
+              <h2>{isTamil ? "தற்போதைய பில்" : isHindi ? "वर्तमान ऑर्डर" : "Current Order"}</h2>
             </div>
             {cart.length > 0 && (
               <button
@@ -388,7 +392,7 @@ export function BillingScreen({
                 title="Clear Cart"
               >
                 <Trash2 size={15} />
-                <span>{isTamil ? "அழிக்க" : "Clear"}</span>
+                <span>{isTamil ? "அழிக்க" : isHindi ? "साफ़ करें" : "Clear"}</span>
               </button>
             )}
           </div>
@@ -401,12 +405,16 @@ export function BillingScreen({
                 <p>
                   {isTamil
                     ? "பொருட்களை கிளிக் செய்து பில்லில் சேர்க்கவும்"
-                    : "Tap items on the left to add to bill"}
+                    : isHindi
+                      ? "बिल में जोड़ने के लिए उत्पादों पर क्लिक करें"
+                      : "Tap items on the left to add to bill"}
                 </p>
                 <small>
                   {isTamil
                     ? "Paytm QR குறியீடு தானாக உருவாகும்"
-                    : "Paytm dynamic QR code will be generated"}
+                    : isHindi
+                      ? "Paytm QR कोड स्वतः उत्पन्न होगा"
+                      : "Paytm dynamic QR code will be generated"}
                 </small>
               </div>
             ) : (
@@ -414,7 +422,7 @@ export function BillingScreen({
                 <div key={item.product.id} className="cart-row">
                   <div className="cart-row-info">
                     <span className="cart-item-name">
-                      {isTamil ? item.product.nameTa : item.product.name}
+                      {getProductName(item.product, lang)}
                     </span>
                     <span className="cart-item-rate">
                       ₹{item.product.price} × {item.quantity}
@@ -456,12 +464,12 @@ export function BillingScreen({
             <div className="cart-footer">
               <div className="cart-subtotal-row">
                 <span>
-                  {isTamil ? "மொத்த பொருட்கள்" : "Total Items"}
+                  {isTamil ? "மொத்த பொருட்கள்" : isHindi ? "कुल आइटम" : "Total Items"}
                 </span>
                 <span>{totalQuantity}</span>
               </div>
               <div className="cart-total-row">
-                <span>{isTamil ? "செலுத்த வேண்டிய தொகை" : "Grand Total"}</span>
+                <span>{isTamil ? "செலுத்த வேண்டிய தொகை" : isHindi ? "कुल देय राशि" : "Grand Total"}</span>
                 <span className="total-rupees">₹{totalAmount}</span>
               </div>
 
@@ -481,7 +489,7 @@ export function BillingScreen({
                   onClick={() => setPaymentMethod("cash")}
                 >
                   <IndianRupee size={16} />
-                  <span>{isTamil ? "ரொக்கம் (Cash)" : "Cash"}</span>
+                  <span>{isTamil ? "ரொக்கம்" : isHindi ? "नकद भुगतान" : "Cash"}</span>
                 </button>
               </div>
 
@@ -495,10 +503,14 @@ export function BillingScreen({
                   {paymentMethod === "paytm_upi"
                     ? isTamil
                       ? `Paytm QR உருவாக்கு (₹${totalAmount})`
-                      : `Generate Paytm QR (₹${totalAmount})`
+                      : isHindi
+                        ? `Paytm QR बनाएं (₹${totalAmount})`
+                        : `Generate Paytm QR (₹${totalAmount})`
                     : isTamil
                       ? `ரொக்கம் செலுத்துதல் (₹${totalAmount})`
-                      : `Receive Cash (₹${totalAmount})`}
+                      : isHindi
+                        ? `नकद प्राप्त करें (₹${totalAmount})`
+                        : `Receive Cash (₹${totalAmount})`}
                 </span>
               </button>
             </div>
@@ -516,8 +528,8 @@ export function BillingScreen({
             if (el) el.scrollIntoView({ behavior: "smooth" });
           }}
         >
-          <span>🛒 {totalQuantity} {isTamil ? "பொருட்கள்" : "Items"} · ₹{totalAmount}</span>
-          <span>{isTamil ? "பில் பார்க்க / பணம் செலுத்த →" : "View Cart & Pay →"}</span>
+          <span>🛒 {totalQuantity} {isTamil ? "பொருட்கள்" : isHindi ? "आइटम" : "Items"} · ₹{totalAmount}</span>
+          <span>{isTamil ? "பில் பார்க்க / பணம் செலுத்த →" : isHindi ? "ऑर्डर देखें / भुगतान करें →" : "View Cart & Pay →"}</span>
         </button>
       )}
 
@@ -532,7 +544,7 @@ export function BillingScreen({
               <div className="paytm-header-brand">
                 <span className="paytm-logo-text">Paytm</span>
                 <span className="paytm-accepted">
-                  {isTamil ? "ஏற்கப்படும்" : "Accepted Here"}
+                  {isTamil ? "ஏற்கப்படும்" : isHindi ? "यहाँ स्वीकार्य है" : "Accepted Here"}
                 </span>
               </div>
               <button
@@ -575,7 +587,7 @@ export function BillingScreen({
               {/* Amount Display */}
               <div className="standee-amount-pill">
                 <span className="amount-label">
-                  {isTamil ? "தொகை" : "Amount"}
+                  {isTamil ? "தொகை" : isHindi ? "राशि" : "Amount"}
                 </span>
                 <span className="amount-value">₹{billTotalAmount}</span>
               </div>
@@ -585,8 +597,10 @@ export function BillingScreen({
                 <div className="soundbox-box">
                   <p className="soundbox-hint">
                     {isTamil
-                      ? "வாடிக்கையாளர் ஸ்கேன் செய்தவுடன் 'கட்டணம் செலுத்து' கிளிக் செய்து Paytm Soundbox தமிழ் ஒலி அறிவிப்பைக் கேளுங்கள்:"
-                      : "Simulate merchant soundbox voice announcement in Tamil:"}
+                      ? "வாடிக்கையாளர் ஸ்கேன் செய்தவுடன் 'கட்டணம் உறுதி' கிளிக் செய்து Paytm சவுண்ட்பாக்ஸ் ஒலி அறிவிப்பைக் கேளுங்கள்:"
+                      : isHindi
+                        ? "ग्राहक द्वारा स्कैन किए जाने पर 'भुगतान पुष्टि' पर क्लिक करें और Paytm साउंडबॉक्स उद्घोषणा सुनें:"
+                        : "Simulate Paytm Soundbox instant voice announcement upon receiving payment:"}
                   </p>
                   <button
                     className="paytm-soundbox-play-btn"
@@ -595,8 +609,10 @@ export function BillingScreen({
                     <Volume2 size={20} className="pulse-icon" />
                     <span>
                       {isTamil
-                        ? "கட்டணம் உறுதி & ஒலி அறிவிப்பு (Simulate Voice)"
-                        : "Confirm & Play Paytm Soundbox Voice"}
+                        ? "கட்டணம் உறுதி & ஒலி அறிவிப்பு"
+                        : isHindi
+                          ? "भुगतान पुष्टि और साउंडबॉक्स उद्घोषणा"
+                          : "Confirm & Play Paytm Soundbox Voice"}
                     </span>
                   </button>
                 </div>
@@ -608,11 +624,16 @@ export function BillingScreen({
                       <h3>
                         {isTamil
                           ? "கட்டணம் வெற்றிகரமாக பெறப்பட்டது!"
-                          : "Payment Received Successfully!"}
+                          : isHindi
+                            ? "भुगतान सफलतापूर्वक प्राप्त हुआ!"
+                            : "Payment Received Successfully!"}
                       </h3>
                       <p className="voice-transcript">
-                        🔊 &ldquo;Paytm-இல் {billTotalAmount} ரூபாய் பெறப்பட்டது!
-                        நன்றி!&rdquo;
+                        {isTamil
+                          ? `🔊 "Paytm-இல் ${billTotalAmount} ரூபாய் பெறப்பட்டது! நன்றி!"`
+                          : isHindi
+                            ? `🔊 "Paytm पर ${billTotalAmount} रुपये प्राप्त हुए! धन्यवाद!"`
+                            : `🔊 "Received ${billTotalAmount} rupees on Paytm! Thank you!"`}
                       </p>
                     </div>
                   </div>
@@ -624,7 +645,11 @@ export function BillingScreen({
                       <span className="wave"></span>
                       <span className="wave"></span>
                       <span className="wave-text">
-                        {isTamil ? "ஒலி அறிவிப்பு ஒலிக்கிறது..." : "Speaking in Tamil..."}
+                        {isTamil
+                          ? "ஒலி அறிவிப்பு ஒலிக்கிறது..."
+                          : isHindi
+                            ? "साउंडबॉक्स बोल रहा है..."
+                            : "Speaking voice announcement..."}
                       </span>
                     </div>
                   )}
@@ -635,7 +660,7 @@ export function BillingScreen({
                       onClick={() => window.print()}
                     >
                       <Printer size={16} />
-                      <span>{isTamil ? "ரசீது அச்சிடுக" : "Print Receipt"}</span>
+                      <span>{isTamil ? "ரசீது அச்சிடுக" : isHindi ? "रसीद प्रिंट करें" : "Print Receipt"}</span>
                     </button>
                     <button
                       className="next-customer-btn"
@@ -643,7 +668,7 @@ export function BillingScreen({
                     >
                       <ArrowRight size={16} />
                       <span>
-                        {isTamil ? "அடுத்த வாடிக்கையாளர்" : "Next Customer"}
+                        {isTamil ? "அடுத்த வாடிக்கையாளர்" : isHindi ? "अगला ग्राहक →" : "Next Customer →"}
                       </span>
                     </button>
                   </div>
@@ -662,7 +687,7 @@ export function BillingScreen({
           <div className="add-product-modal">
             <div className="modal-header">
               <h3>
-                {isTamil ? "புதிய பொருள் சேர்க்க" : "Add New Product"}
+                {isTamil ? "புதிய பொருள் சேர்க்க" : isHindi ? "नया उत्पाद जोड़ें" : "Add New Product"}
               </h3>
               <button
                 className="close-modal-btn"
@@ -673,7 +698,7 @@ export function BillingScreen({
             </div>
             <form onSubmit={handleAddProduct} className="modal-form">
               <label>
-                <span>{isTamil ? "பொருள் பெயர் (ஆங்கிலம்)" : "Item Name (English)"}</span>
+                <span>{isTamil ? "பொருள் பெயர் (ஆங்கிலம்)" : isHindi ? "उत्पाद नाम (अंग्रेज़ी)" : "Item Name (English)"}</span>
                 <input
                   type="text"
                   required
@@ -684,10 +709,10 @@ export function BillingScreen({
               </label>
 
               <label>
-                <span>{isTamil ? "பொருள் பெயர் (தமிழ்)" : "Item Name (Tamil)"}</span>
+                <span>{isTamil ? "பொருள் பெயர் (தமிழ் / இந்தி)" : isHindi ? "उत्पाद नाम (हिंदी / क्षेत्रीय)" : "Item Name (Regional)"}</span>
                 <input
                   type="text"
-                  placeholder="e.g. இஞ்சி டீ"
+                  placeholder="e.g. இஞ்சி டீ / अदरक चाय"
                   value={newProdNameTa}
                   onChange={(e) => setNewProdNameTa(e.target.value)}
                 />
@@ -695,7 +720,7 @@ export function BillingScreen({
 
               <div className="form-row-2">
                 <label>
-                  <span>{isTamil ? "விலை (₹)" : "Price (₹)"}</span>
+                  <span>{isTamil ? "விலை (₹)" : isHindi ? "कीमत (₹)" : "Price (₹)"}</span>
                   <input
                     type="number"
                     min="1"
@@ -707,24 +732,24 @@ export function BillingScreen({
                 </label>
 
                 <label>
-                  <span>{isTamil ? "பிரிவு" : "Category"}</span>
+                  <span>{isTamil ? "பிரிவு" : isHindi ? "श्रेणी" : "Category"}</span>
                   <select
                     value={newProdCategory}
                     onChange={(e) =>
                       setNewProdCategory(e.target.value as ProductCategory)
                     }
                   >
-                    <option value="tea_coffee">Tea & Coffee (டீ & காபி)</option>
-                    <option value="snacks">Snacks (சிற்றுண்டி)</option>
-                    <option value="bakery_tiffin">Bakery & Tiffin (டிபன்)</option>
-                    <option value="drinks">Drinks & Milk (குளிர் பானம்)</option>
-                    <option value="other">Other (மற்றவை)</option>
+                    <option value="tea_coffee">{getCategoryLabel("tea_coffee", lang)}</option>
+                    <option value="snacks">{getCategoryLabel("snacks", lang)}</option>
+                    <option value="bakery_tiffin">{getCategoryLabel("bakery_tiffin", lang)}</option>
+                    <option value="drinks">{getCategoryLabel("drinks", lang)}</option>
+                    <option value="other">{getCategoryLabel("other", lang)}</option>
                   </select>
                 </label>
               </div>
 
               <label>
-                <span>{isTamil ? "சின்னம் (Emoji)" : "Icon / Emoji"}</span>
+                <span>{isTamil ? "சின்னம் (Emoji)" : isHindi ? "चिह्न (Emoji)" : "Icon / Emoji"}</span>
                 <input
                   type="text"
                   value={newProdEmoji}
@@ -739,10 +764,10 @@ export function BillingScreen({
                   className="secondary-btn"
                   onClick={() => setShowAddProductModal(false)}
                 >
-                  {isTamil ? "ரத்து" : "Cancel"}
+                  {isTamil ? "ரத்து" : isHindi ? "रद्द करें" : "Cancel"}
                 </button>
                 <button type="submit" className="primary-btn">
-                  {isTamil ? "சேமி" : "Save Product"}
+                  {isTamil ? "சேமி" : isHindi ? "सहेजें" : "Save Product"}
                 </button>
               </div>
             </form>
@@ -782,6 +807,11 @@ export function AnalyticsScreen({
     return [...new Set(bills.map((b) => b.date))].sort().reverse();
   }, [bills]);
 
+  const storeAI = useMemo(() => {
+    const targetDate = selectedDate === "all" ? availableDates[0] || "2026-11-15" : selectedDate;
+    return analyzeStoreBills(bills, targetDate, products);
+  }, [bills, selectedDate, products, availableDates]);
+
   // Voice playback triggers
   const handlePlayVoice = (text: string) => {
     setSpokenTranscript(text);
@@ -790,6 +820,7 @@ export function AnalyticsScreen({
       text,
       () => setIsSpeaking(true),
       () => setIsSpeaking(false),
+      lang,
     );
   };
 
@@ -814,16 +845,16 @@ export function AnalyticsScreen({
           </h1>
           <p className="analytics-subtitle">
             {isTamil
-              ? "எந்தப் பொருட்கள் அதிகம் விற்றன, எந்த நேரத்தில் விற்பனை மந்தமாக இருந்தது, மற்றும் தினசரி விவரங்கள்."
+              ? "எந்தப் பொருட்கள் அதிகம் விற்றன, எந்த நேரத்தில் விற்பனை மந்தமாக இருந்தது, மற்றும் 6 நாள் விற்பனை விவரங்கள்."
               : isHindi
-                ? "कौन से उत्पाद बिके, किस समय बिक्री नहीं हुई, और दिनवार विवरण।"
-                : "Track product volumes, identify inactive dead hours, and review daily sales."}
+                ? "कौन से उत्पाद बिके, किस समय मंदी रही, और 6-दिवसीय बिक्री विवरण।"
+                : "Track product volumes, identify inactive dead hours, and review 6-day sales trends."}
           </p>
         </div>
         <div className="analytics-actions-right">
           <button className="secondary-btn" onClick={onGoToBilling}>
             <ShoppingCart size={16} />
-            <span>{isTamil ? "பில்லிங் செல்ல" : "Go to Billing"}</span>
+            <span>{isTamil ? "பில்லிங் செல்ல" : isHindi ? "बिलिंग पर जाएं" : "Go to Billing"}</span>
           </button>
         </div>
       </div>
@@ -833,19 +864,19 @@ export function AnalyticsScreen({
         <div className="filter-chips">
           <span className="filter-label">
             <Calendar size={16} />
-            {isTamil ? "தேதி:" : "Date:"}
+            {isTamil ? "தேதி:" : isHindi ? "तारीख:" : "Date:"}
           </span>
           {[
             ...availableDates.map((d, idx) => ({
               id: d,
               label:
                 idx === 0
-                  ? isTamil ? `இன்று (${d.slice(8)} Nov)` : `Today (${d.slice(8)} Nov)`
+                  ? isTamil ? `இன்று (${d.slice(8)} Nov)` : isHindi ? `आज (${d.slice(8)} Nov)` : `Today (${d.slice(8)} Nov)`
                   : idx === 1
-                  ? isTamil ? `நேற்று (${d.slice(8)} Nov)` : `Yesterday (${d.slice(8)} Nov)`
+                  ? isTamil ? `நேற்று (${d.slice(8)} Nov)` : isHindi ? `कल (${d.slice(8)} Nov)` : `Yesterday (${d.slice(8)} Nov)`
                   : `${d.slice(8)} Nov`,
             })),
-            { id: "all", label: isTamil ? "அனைத்து 6 நாட்கள்" : "All 6 Days" },
+            { id: "all", label: isTamil ? "அனைத்து 6 நாட்கள்" : isHindi ? "सभी 6 दिन" : "All 6 Days" },
           ].map((d) => (
             <button
               key={d.id}
@@ -857,60 +888,114 @@ export function AnalyticsScreen({
           ))}
         </div>
 
-        {/* Tamil Voice Briefing Button */}
+        {/* Multilingual Voice Briefing Button */}
         <div className="voice-control-group">
           {!isSpeaking ? (
             <button
               className="voice-play-pill"
-              onClick={() => handlePlayVoice(analytics.voiceBriefingTa)}
+              onClick={() =>
+                handlePlayVoice(
+                  isTamil
+                    ? analytics.voiceBriefingTa
+                    : isHindi
+                      ? storeAI.fullReportHi
+                      : storeAI.fullReportEn,
+                )
+              }
             >
               <Volume2 size={18} className="pulse-icon" />
-              <span>{isTamil ? "தமிழில் குரல் அறிக்கை கேட்க" : "Listen in Tamil"}</span>
+              <span>
+                {isTamil
+                  ? "குரல் அறிக்கை கேட்க"
+                  : isHindi
+                    ? "आवाज़ में रिपोर्ट सुनें"
+                    : "Listen Voice Summary"}
+              </span>
             </button>
           ) : (
             <button className="voice-stop-pill" onClick={handleStopVoice}>
               <VolumeX size={18} />
-              <span>{isTamil ? "நிறுத்துக" : "Stop Voice"}</span>
+              <span>{isTamil ? "நிறுத்துக" : isHindi ? "रोकें" : "Stop Voice"}</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* TAMIL VOICE ASSISTANT CARD */}
+      {/* MULTILINGUAL VOICE ASSISTANT CARD */}
       <div className="tamil-voice-card">
         <div className="voice-card-header">
           <div className="voice-card-title">
             <Volume2 size={20} className="text-cyan" />
             <h3>
               {isTamil
-                ? "குரல் வழி வணிக வழிகாட்டி (Tamil Voice Assistant)"
-                : "Tamil Voice Assistant"}
+                ? "குரல் வழி வணிக வழிகாட்டி"
+                : isHindi
+                  ? "आवाज़ आधारित व्यापार गाइड"
+                  : "Voice Store Assistant"}
             </h3>
           </div>
           <div className="quick-voice-prompts">
             <button
               className="prompt-chip"
-              onClick={() => handlePlayVoice(analytics.voiceBriefingTa)}
+              onClick={() =>
+                handlePlayVoice(
+                  isTamil
+                    ? analytics.voiceBriefingTa
+                    : isHindi
+                      ? storeAI.fullReportHi
+                      : storeAI.fullReportEn,
+                )
+              }
             >
-              🔊 {isTamil ? "முழு அறிக்கை" : "Full Summary"}
+              🔊 {isTamil ? "முழு அறிக்கை" : isHindi ? "पूरी रिपोर्ट" : "Full Summary"}
             </button>
             <button
               className="prompt-chip alert-chip"
-              onClick={() => handlePlayVoice(analytics.deadHoursWarningTa)}
+              onClick={() =>
+                handlePlayVoice(
+                  isTamil
+                    ? analytics.deadHoursWarningTa
+                    : isHindi
+                      ? (storeAI.decisions[0]?.voiceTextHi || storeAI.fullReportHi)
+                      : (storeAI.decisions[0]?.voiceTextEn || storeAI.fullReportEn),
+                )
+              }
             >
-              ⚠️ {isTamil ? "மந்தமான நேரம்" : "Dead Hours"}
+              ⚠️ {isTamil ? "மந்தமான நேரம்" : isHindi ? "मंदी का समय" : "Dead Hours"}
             </button>
             <button
               className="prompt-chip success-chip"
               onClick={() =>
                 handlePlayVoice(
-                  analytics.topSellingProduct
-                    ? `இன்று அதிகம் விற்ற பொருள் ${analytics.topSellingProduct.nameTa}, மொத்தம் ${analytics.topSellingProduct.unitsSold} விற்று ரூபாய் ${analytics.topSellingProduct.totalRevenue} வசூலானது.`
-                    : "இன்று விற்பனை இன்னும் பதிவாகவில்லை.",
+                  isTamil
+                    ? (analytics.topSellingProduct
+                      ? `இன்று அதிகம் விற்ற பொருள் ${analytics.topSellingProduct.nameTa}, மொத்தம் ${analytics.topSellingProduct.unitsSold} விற்று ரூபாய் ${analytics.topSellingProduct.totalRevenue} வசூலானது.`
+                      : "இன்று விற்பனை இன்னும் பதிவாகவில்லை.")
+                    : isHindi
+                      ? (storeAI.topProduct
+                        ? `आज सबसे ज्यादा बिकने वाला उत्पाद ${storeAI.topProduct.name} है, कुल ${storeAI.topProduct.units} पीस बिके।`
+                        : "बिक्री दर्ज की जा रही है।")
+                      : (storeAI.topProduct
+                        ? `Top seller today is ${storeAI.topProduct.name} with ${storeAI.topProduct.units} units sold.`
+                        : "Recording sales."),
                 )
               }
             >
-              🏆 {isTamil ? "அதிகம் விற்ற பொருள்" : "Top Item"}
+              🏆 {isTamil ? "அதிகம் விற்ற பொருள்" : isHindi ? "टॉप उत्पाद" : "Top Item"}
+            </button>
+            <button
+              className="prompt-chip decision-chip"
+              onClick={() =>
+                handlePlayVoice(
+                  isTamil
+                    ? storeAI.decisions[0]?.voiceTextTa || analytics.voiceBriefingTa
+                    : isHindi
+                      ? storeAI.decisions[0]?.voiceTextHi || storeAI.fullReportHi
+                      : storeAI.decisions[0]?.voiceTextEn || storeAI.fullReportEn,
+                )
+              }
+            >
+              💡 {isTamil ? "AI முடிவுகள்" : isHindi ? "AI निर्णय" : "AI Decisions"}
             </button>
           </div>
         </div>
@@ -919,7 +1004,11 @@ export function AnalyticsScreen({
         <div className="voice-transcript-box">
           <p>
             {spokenTranscript ||
-              analytics.voiceBriefingTa}
+              (isTamil
+                ? analytics.voiceBriefingTa
+                : isHindi
+                  ? storeAI.fullReportHi
+                  : storeAI.fullReportEn)}
           </p>
         </div>
       </div>
@@ -928,47 +1017,118 @@ export function AnalyticsScreen({
       <div className="kpi-cards-grid">
         <div className="kpi-card">
           <span className="kpi-label">
-            {isTamil ? "மொத்த வருவாய்" : "Total Revenue"}
+            {isTamil ? "மொத்த வருவாய்" : isHindi ? "कुल बिक्री राजस्व" : "Total Revenue"}
           </span>
           <strong className="kpi-value text-cyan">
             ₹{analytics.totalRevenue}
           </strong>
           <small className="kpi-sub">
-            {isTamil ? "பதிவான பில்கள்" : "Recorded Sales"}
+            {isTamil ? "பதிவான பில்கள்" : isHindi ? "दर्ज बिल" : "Recorded Sales"}
           </small>
         </div>
 
         <div className="kpi-card">
           <span className="kpi-label">
-            {isTamil ? "பில்கள் எண்ணிக்கை" : "Total Bills"}
+            {isTamil ? "பில்கள் எண்ணிக்கை" : isHindi ? "कुल बिल" : "Total Bills"}
           </span>
           <strong className="kpi-value">{analytics.totalBills}</strong>
           <small className="kpi-sub">
-            {isTamil ? "சராசரி பில்: ₹" : "Avg Bill: ₹"}
+            {isTamil ? "சராசரி பில்: ₹" : isHindi ? "औसत बिल: ₹" : "Avg Bill: ₹"}
             {analytics.averageBillValue}
           </small>
         </div>
 
         <div className="kpi-card">
           <span className="kpi-label">
-            {isTamil ? "விற்பனையான பொருட்கள்" : "Total Items Sold"}
+            {isTamil ? "விற்பனையான பொருட்கள்" : isHindi ? "बिके सामान" : "Total Items Sold"}
           </span>
           <strong className="kpi-value">{analytics.totalUnitsSold}</strong>
           <small className="kpi-sub">
-            {isTamil ? "மொத்த எண்ணிக்கைகள்" : "Units Dispensed"}
+            {isTamil ? "மொத்த எண்ணிக்கைகள்" : isHindi ? "कुल पीस" : "Units Dispensed"}
           </small>
         </div>
 
         <div className="kpi-card">
           <span className="kpi-label">
-            {isTamil ? "Paytm UPI பங்கு" : "Paytm UPI Share"}
+            {isTamil ? "Paytm UPI பங்கு" : isHindi ? "Paytm UPI हिस्सेदारी" : "Paytm UPI Share"}
           </span>
           <strong className="kpi-value text-blue">
             {analytics.paytmUpiSharePercent}%
           </strong>
           <small className="kpi-sub">
-            {isTamil ? "QR மூலம் பெறப்பட்டது" : "Via Dynamic QR"}
+            {isTamil ? "QR மூலம் பெறப்பட்டது" : isHindi ? "QR द्वारा प्राप्त" : "Via Dynamic QR"}
           </small>
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* SARVAM AI DECISION ENGINE (AI முடிவெடுக்கும் மையம்) */}
+      {/* ======================================================== */}
+      <div className="sarvam-decision-panel">
+        <div className="sarvam-decision-header">
+          <div className="decision-header-left">
+            <span className="paytm-brand-tag">Paytm Merchant AI Decision Engine</span>
+            <h2>
+              {isTamil
+                ? "💡 சர்வம் AI வணிக முடிவுகள் (Sarvam Decision Engine)"
+                : isHindi
+                  ? "💡 सर्वम AI व्यावसायिक निर्णय (Decision Engine)"
+                  : "💡 Sarvam AI Store Strategic Decisions"}
+            </h2>
+            <p>
+              {isTamil
+                ? "நேரடி வானிலை, 6 நாள் விற்பனை போக்கு மற்றும் நேரத்தைக் கணக்கிட்டு உருவாக்கப்பட்ட தானியங்கி முடிவுகள்."
+                : isHindi
+                  ? "लाइव मौसम, 6-दिवसीय बिक्री रुझान और समय पर आधारित व्यावसायिक निर्णय।"
+                  : "Automated business decisions driven by live weather, 6-day sales trends, and time-of-day analytics."}
+            </p>
+          </div>
+        </div>
+
+        <div className="sarvam-decision-cards-grid">
+          {storeAI.decisions.map((dec) => (
+            <div key={dec.id} className={`sarvam-decision-card priority-${dec.priority}`}>
+              <div className="decision-card-top">
+                <span className="decision-icon">{dec.icon}</span>
+                <span className={`decision-badge badge-${dec.priority}`}>
+                  {isTamil ? dec.badgeTa : isHindi ? dec.badgeHi : dec.badgeEn}
+                </span>
+                <button
+                  className="decision-listen-btn"
+                  title="Listen via Sarvam AI"
+                  onClick={() =>
+                    handlePlayVoice(
+                      isTamil ? dec.voiceTextTa : isHindi ? dec.voiceTextHi : dec.voiceTextEn,
+                    )
+                  }
+                >
+                  <Volume2 size={16} />
+                  <span>{isTamil ? "கேட்க" : isHindi ? "सुनें" : "Listen"}</span>
+                </button>
+              </div>
+
+              <h3 className="decision-title">
+                {isTamil ? dec.titleTa : isHindi ? dec.titleHi : dec.titleEn}
+              </h3>
+              <p className="decision-context">
+                {isTamil ? dec.contextTa : isHindi ? dec.contextHi : dec.contextEn}
+              </p>
+              <div className="decision-recommendation-box">
+                <Sparkles size={16} className="text-cyan" />
+                <p>{isTamil ? dec.recommendationTa : isHindi ? dec.recommendationHi : dec.recommendationEn}</p>
+              </div>
+              <div className="decision-footer">
+                <div className="decision-impact">
+                  <small>{isTamil ? "எதிர்பார்க்கப்படும் பலன்:" : isHindi ? "अनुमानित लाभ:" : "Projected Impact:"}</small>
+                  <strong>{isTamil ? dec.projectedImpactTa : isHindi ? dec.projectedImpactHi : dec.projectedImpactEn}</strong>
+                </div>
+                <button className="decision-action-btn" onClick={onGoToActions}>
+                  <span>{isTamil ? dec.actionLabelTa : isHindi ? dec.actionLabelHi : dec.actionLabelEn}</span>
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -983,12 +1143,16 @@ export function AnalyticsScreen({
               <h2>
                 {isTamil
                   ? "நேர வாரியான விற்பனை & மந்தமான நேரங்கள் (Time & Dead Hours)"
-                  : "Hourly Breakdown & Inactive Hours"}
+                  : isHindi
+                    ? "समयवार बिक्री और मंदी के घंटे"
+                    : "Hourly Breakdown & Inactive Hours"}
               </h2>
               <p>
                 {isTamil
                   ? "எந்த நேரத்தில் விற்பனை நடந்தது, எந்த நேரத்தில் விற்பனை மந்தமாக இருந்தது அல்லது நடக்கவில்லை என்பதை விளக்குகிறது."
-                  : "Tracks peak rush hours and explicitly flags quiet/dead windows with zero sales."}
+                  : isHindi
+                    ? "किस समय बिक्री हुई और किस समय मंदी रही, इसका संपूर्ण विवरण।"
+                    : "Tracks peak rush hours and explicitly flags quiet/dead windows with zero sales."}
               </p>
             </div>
           </div>
@@ -1004,20 +1168,30 @@ export function AnalyticsScreen({
               <strong>
                 {isTamil
                   ? "விற்பனை மந்தமான / நடக்காத நேரங்கள் கண்டறியப்பட்டன!"
-                  : "Inactive / Dead Hours Detected!"}
+                  : isHindi
+                    ? "बिक्री मंदी का समय पाया गया!"
+                    : "Inactive / Dead Hours Detected!"}
               </strong>
               <p>
                 {isTamil
                   ? `மதியம் ${analytics.deadHours.map((d) => d.hourLabel).join(", ")} நேரங்களில் விற்பனை ஏதும் நடக்கவில்லை அல்லது மிகக் குறைவாக இருந்தது.`
-                  : `During ${analytics.deadHours.map((d) => d.hourLabel).join(", ")}, customer count was zero or minimal.`}
+                  : isHindi
+                    ? `${analytics.deadHours.map((d) => d.hourLabel).join(", ")} के समय में ग्राहक बहुत कम या शून्य रहे।`
+                    : `During ${analytics.deadHours.map((d) => d.hourLabel).join(", ")}, customer count was zero or minimal.`}
               </p>
               <div className="recommendation-badge">
                 <Sparkles size={16} />
-                <span>{analytics.actionRecommendationTa}</span>
+                <span>
+                  {isTamil
+                    ? analytics.actionRecommendationTa
+                    : isHindi
+                      ? (storeAI.decisions[0]?.recommendationHi || analytics.actionRecommendationTa)
+                      : (storeAI.decisions[0]?.recommendationEn || analytics.actionRecommendationTa)}
+                </span>
               </div>
             </div>
             <button className="action-pill-btn" onClick={onGoToActions}>
-              <span>{isTamil ? "சலுகை உருவாக்குக" : "Create Offer"}</span>
+              <span>{isTamil ? "சலுகை உருவாக்குக" : isHindi ? "कॉम्बो ऑफर बनाएं" : "Create Offer"}</span>
               <ChevronRight size={16} />
             </button>
           </div>
@@ -1028,15 +1202,15 @@ export function AnalyticsScreen({
           <div className="chart-legend">
             <span className="legend-item">
               <span className="dot dot-peak"></span>
-              {isTamil ? "பீக் நேரம் (அதிக விற்பனை)" : "Peak Rush"}
+              {isTamil ? "பீக் நேரம் (அதிக விற்பனை)" : isHindi ? "पीक समय (अधिक बिक्री)" : "Peak Rush"}
             </span>
             <span className="legend-item">
               <span className="dot dot-normal"></span>
-              {isTamil ? "சாதாரண விற்பனை" : "Normal"}
+              {isTamil ? "சாதாரண விற்பனை" : isHindi ? "सामान्य बिक्री" : "Normal"}
             </span>
             <span className="legend-item">
               <span className="dot dot-dead"></span>
-              {isTamil ? "மந்தமான நேரம் (விற்பனை இல்லை)" : "Dead / Zero Sales"}
+              {isTamil ? "மந்தமான நேரம்" : isHindi ? "मंदी का समय" : "Dead Hours"}
             </span>
           </div>
 
@@ -1069,7 +1243,7 @@ export function AnalyticsScreen({
                   <span className="timeline-hour">{h.hour}:00</span>
                   {h.isDead && (
                     <span className="dead-tag">
-                      {isTamil ? "மந்தம்" : "Dead"}
+                      {isTamil ? "மந்தம்" : isHindi ? "मंदी" : "Dead"}
                     </span>
                   )}
                   {h.isPeak && (
@@ -1094,13 +1268,17 @@ export function AnalyticsScreen({
             <div>
               <h2>
                 {isTamil
-                  ? "பொருள் வாரியான விற்பனை விவரம் (Product-wise Sales)"
-                  : "Product Sales & Popularity"}
+                  ? "பொருள் வாரியான விற்பனை விவரம்"
+                  : isHindi
+                    ? "उत्पादवार बिक्री विवरण"
+                    : "Product Sales & Popularity"}
               </h2>
               <p>
                 {isTamil
                   ? "எந்தப் பொருள் எத்தனை எண்ணிக்கையில் விற்றது, எவ்வளவு வருவாய் கிடைத்தது என்ற விவரம்."
-                  : "Quantities sold and revenue contribution for each menu item."}
+                  : isHindi
+                    ? "प्रत्येक मेनू आइटम की बिकी मात्रा और राजस्व योगदान।"
+                    : "Quantities sold and revenue contribution for each menu item."}
               </p>
             </div>
           </div>
@@ -1114,33 +1292,33 @@ export function AnalyticsScreen({
             </div>
             <div className="spotlight-details">
               <div className="spotlight-badge">
-                🏆 {isTamil ? "இன்றைய முதலிடம்" : "#1 Best Seller"}
+                🏆 {isTamil ? "இன்றைய முதலிடம்" : isHindi ? "आज का #1 बेस्ट सेलर" : "#1 Best Seller"}
               </div>
               <h3>
-                {isTamil
-                  ? analytics.topSellingProduct.nameTa
-                  : analytics.topSellingProduct.name}
+                {getProductName(analytics.topSellingProduct, lang)}
               </h3>
               <p>
                 {isTamil
                   ? `மொத்தம் ${analytics.topSellingProduct.unitsSold} எண்ணிக்கையில் விற்று, ₹${analytics.topSellingProduct.totalRevenue} வருவாய் ஈட்டியுள்ளது. (மொத்த விற்பனையில் ${analytics.topSellingProduct.revenuePercent}%)`
-                  : `Sold ${analytics.topSellingProduct.unitsSold} units generating ₹${analytics.topSellingProduct.totalRevenue} (${analytics.topSellingProduct.revenuePercent}% of daily revenue).`}
+                  : isHindi
+                    ? `कुल ${analytics.topSellingProduct.unitsSold} पीस बिके और ₹${analytics.topSellingProduct.totalRevenue} राजस्व प्राप्त हुआ। (दैनिक बिक्री का ${analytics.topSellingProduct.revenuePercent}%)`
+                    : `Sold ${analytics.topSellingProduct.unitsSold} units generating ₹${analytics.topSellingProduct.totalRevenue} (${analytics.topSellingProduct.revenuePercent}% of daily revenue).`}
               </p>
             </div>
           </div>
         )}
 
         {/* Products Table */}
-        <div className="table-card">
+        <div className="table-card table-responsive">
           <table className="analytics-table">
             <thead>
               <tr>
-                <th>{isTamil ? "பொருள்" : "Product"}</th>
-                <th>{isTamil ? "பிரிவு" : "Category"}</th>
-                <th>{isTamil ? "விலை" : "Price"}</th>
-                <th>{isTamil ? "விற்ற எண்ணிக்கை" : "Units Sold"}</th>
-                <th>{isTamil ? "மொத்த வருவாய்" : "Revenue"}</th>
-                <th>{isTamil ? "பங்கு (%)" : "Share"}</th>
+                <th>{isTamil ? "பொருள்" : isHindi ? "उत्पाद" : "Product"}</th>
+                <th>{isTamil ? "பிரிவு" : isHindi ? "श्रेणी" : "Category"}</th>
+                <th>{isTamil ? "விலை" : isHindi ? "कीमत" : "Price"}</th>
+                <th>{isTamil ? "விற்ற எண்ணிக்கை" : isHindi ? "बिकी संख्या" : "Units Sold"}</th>
+                <th>{isTamil ? "மொத்த வருவாய்" : isHindi ? "कुल राजस्व" : "Revenue"}</th>
+                <th>{isTamil ? "பங்கு (%)" : isHindi ? "हिस्सेदारी (%)" : "Share"}</th>
               </tr>
             </thead>
             <tbody>
@@ -1149,15 +1327,13 @@ export function AnalyticsScreen({
                   <td className="product-cell">
                     <span className="p-emoji">{p.emoji}</span>
                     <div>
-                      <strong>{isTamil ? p.nameTa : p.name}</strong>
-                      <small>{isTamil ? p.name : p.nameTa}</small>
+                      <strong>{getProductName(p, lang)}</strong>
+                      <small>{lang === "ta-IN" ? p.name : lang === "hi-IN" ? p.name : p.nameTa}</small>
                     </div>
                   </td>
                   <td>
                     <span className="cat-badge">
-                      {isTamil
-                        ? CATEGORY_LABELS[p.category]?.ta
-                        : CATEGORY_LABELS[p.category]?.en}
+                      {getCategoryLabel(p.category, lang)}
                     </span>
                   </td>
                   <td>₹{p.unitPrice}</td>
@@ -1193,13 +1369,17 @@ export function AnalyticsScreen({
             <div>
               <h2>
                 {isTamil
-                  ? "தினசரி பொருள் விற்பனை ஒப்பீடு (Day-wise Breakdown)"
-                  : "Day-wise Sales & Trends"}
+                  ? "தினசரி பொருள் விற்பனை ஒப்பீடு"
+                  : isHindi
+                    ? "दैनिक बिक्री तुलना"
+                    : "Day-wise Sales & Trends"}
               </h2>
               <p>
                 {isTamil
                   ? "ஒவ்வொரு நாளும் எந்தெந்தப் பொருள் எவ்வளவு விற்றது என்ற நாள் வாரியான ஒப்பீடு."
-                  : "Daily sales comparison showing exact item quantities sold per day."}
+                  : isHindi
+                    ? "पिछले 6 दिनों में दैनिक बिक्री और बिके सामान की तुलना।"
+                    : "Daily sales comparison showing exact item quantities sold per day."}
               </p>
             </div>
           </div>
@@ -1216,20 +1396,20 @@ export function AnalyticsScreen({
                 <div className="daywise-totals">
                   <span className="day-rev">₹{day.totalRevenue}</span>
                   <span className="day-bills">
-                    {day.billsCount} {isTamil ? "பில்கள்" : "bills"}
+                    {day.billsCount} {isTamil ? "பில்கள்" : isHindi ? "बिल" : "bills"}
                   </span>
                 </div>
               </div>
 
               <div className="daywise-products-list">
                 <span className="list-title">
-                  {isTamil ? "விற்ற பொருட்கள்:" : "Items Sold:"}
+                  {isTamil ? "விற்ற பொருட்கள்:" : isHindi ? "बिके सामान:" : "Items Sold:"}
                 </span>
                 <div className="day-items-chips">
                   {day.products.map((item) => (
                     <div key={item.productId} className="day-item-pill">
                       <span className="item-name">
-                        {isTamil ? item.nameTa : item.name}
+                        {getProductName(item, lang)}
                       </span>
                       <span className="item-qty">×{item.unitsSold}</span>
                       <span className="item-rev">₹{item.revenue}</span>
