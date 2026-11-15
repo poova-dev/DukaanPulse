@@ -87,3 +87,117 @@ test("answerStoreAIQuestion handles Tamil, Hindi, and English multilingual quest
   assert.equal(prodReply.topic, "products");
   assert.ok(prodReply.activeAnswer.includes("மசாலா டீ") || prodReply.activeAnswer.includes("பொருட்கள்"));
 });
+
+test("analyzeStoreBills respects store operating hours, exceptions, and coverage checks", () => {
+  const seedBills = generateSeedBills();
+
+  // 1. When store is closed for the day via date exception
+  const closedContext = {
+    shop: "Marina Tea & Snacks",
+    date: "2026-11-15",
+    open: 420,
+    close: 1320,
+    goal: "count" as const,
+    threshold: 25,
+    coverage: {},
+    exceptions: {
+      "2026-11-15": {
+        closed: true,
+        open: 0,
+        close: 0,
+        exclude: false,
+        reason: "Store closed for holiday",
+      },
+    },
+    testDate: "2026-11-22",
+    reviewDate: "2026-11-23",
+    offer: {
+      name: { "en-IN": "Combo", "hi-IN": "कॉम्बो", "ta-IN": "காம்போ" },
+      available: true,
+      price: 4000,
+      cost: 2800,
+      discount: 500,
+      additional: 0,
+      quantity: 40,
+      limit: 20,
+      budget: 10000,
+      floor: 0,
+      referenceVolume: 14,
+    },
+  };
+
+  const closedAnalysis = analyzeStoreBills(
+    seedBills,
+    "2026-11-15",
+    DEFAULT_PRODUCTS,
+    undefined,
+    undefined,
+    closedContext,
+  );
+
+  // All windows must be marked closed with NO slumps flagged and quiet-hour advice safely withdrawn!
+  assert.equal(closedAnalysis.flaggedDipWindows.length, 0);
+  for (const win of closedAnalysis.timeWindows) {
+    assert.equal(win.isOpen, false);
+    assert.equal(win.isFlagged, false);
+    assert.equal(win.state, "closed");
+    assert.ok(win.recommendationTa.includes("திரும்பப் பெறப்பட்டது"));
+  }
+  assert.ok(closedAnalysis.offerAdviceTa.includes("திரும்பப் பெறப்பட்டுள்ளது"));
+
+  // 2. When store opens late (12:00 PM = 720 min)
+  const lateOpenContext = {
+    ...closedContext,
+    open: 720, // 12:00 PM
+    close: 1320,
+    exceptions: {},
+  };
+
+  const lateAnalysis = analyzeStoreBills(
+    seedBills,
+    "2026-11-15",
+    DEFAULT_PRODUCTS,
+    undefined,
+    undefined,
+    lateOpenContext,
+  );
+
+  // Morning window (07:00 - 11:00) is before 12:00 PM, must be marked closed!
+  const morningWin = lateAnalysis.timeWindows.find((w) => w.startHour === 7);
+  assert.ok(morningWin);
+  assert.equal(morningWin.isOpen, false);
+  assert.equal(morningWin.isFlagged, false);
+  assert.equal(morningWin.state, "closed");
+
+  // 3. When coverage is unconfirmed
+  const unconfirmedCovContext = {
+    ...closedContext,
+    open: 420,
+    close: 1320,
+    exceptions: {},
+    coverage: {
+      "2026-11-15": {
+        state: "unknown" as const,
+        start: 420,
+        end: 1320,
+      },
+    },
+  };
+
+  const covAnalysis = analyzeStoreBills(
+    seedBills,
+    "2026-11-15",
+    DEFAULT_PRODUCTS,
+    undefined,
+    undefined,
+    unconfirmedCovContext,
+  );
+
+  // All windows have unconfirmed coverage, none can be flagged as slumps!
+  assert.equal(covAnalysis.flaggedDipWindows.length, 0);
+  for (const win of covAnalysis.timeWindows) {
+    assert.equal(win.hasCoverage, false);
+    assert.equal(win.isFlagged, false);
+    assert.equal(win.state, "unknown");
+  }
+});

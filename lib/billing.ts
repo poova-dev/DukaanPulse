@@ -720,8 +720,12 @@ export function saveBills(bills: Bill[]): void {
 }
 
 /**
- * Plays the iconic Paytm Soundbox chime using Web Audio API:
- * Two crystal-clear tones (frequency 1046 Hz followed by 1318 Hz)
+ * Plays an authentic recreation of the Paytm Soundbox payment confirmation
+ * chime using Web Audio API. Uses harmonic-rich tones with ADSR envelopes
+ * and a subtle convolution reverb to emulate the characteristic metallic ring
+ * of the real Soundbox speaker.
+ *
+ * Two ascending notes: C6 (1046 Hz) → E6 (1318 Hz)
  */
 export function playPaytmChime(): void {
   if (typeof window === "undefined") return;
@@ -733,25 +737,125 @@ export function playPaytmChime(): void {
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
 
-    const playTone = (freq: number, start: number, duration: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime + start);
-      gain.gain.exponentialRampToValueAtTime(
-        0.001,
-        ctx.currentTime + start + duration,
-      );
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + start);
-      osc.stop(ctx.currentTime + start + duration);
+    // --- Reverb via short impulse response ---
+    const sampleRate = ctx.sampleRate;
+    const reverbLen = Math.floor(sampleRate * 0.6); // 600ms tail
+    const impulseBuffer = ctx.createBuffer(2, reverbLen, sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = impulseBuffer.getChannelData(ch);
+      for (let i = 0; i < reverbLen; i++) {
+        // Exponential decay with a bit of stereo randomness
+        data[i] =
+          (Math.random() * 2 - 1) * Math.pow(1 - i / reverbLen, 3);
+      }
+    }
+    const convolver = ctx.createConvolver();
+    convolver.buffer = impulseBuffer;
+
+    // Mix dry / wet
+    const dryGain = ctx.createGain();
+    const wetGain = ctx.createGain();
+    dryGain.gain.value = 0.75;
+    wetGain.gain.value = 0.25;
+    convolver.connect(wetGain);
+    wetGain.connect(ctx.destination);
+    dryGain.connect(ctx.destination);
+
+    /**
+     * Play a single harmonic-rich tone with a proper ADSR envelope.
+     *
+     * @param freq      Fundamental frequency (Hz)
+     * @param startSec  When the note begins (relative to ctx.currentTime)
+     * @param attack    Attack time (s)
+     * @param decay     Decay time (s)
+     * @param sustain   Sustain level (0-1)
+     * @param sustainT  Sustain hold time (s)
+     * @param release   Release time (s)
+     * @param peakGain  Peak amplitude
+     */
+    const playTone = (
+      freq: number,
+      startSec: number,
+      attack: number,
+      decay: number,
+      sustain: number,
+      sustainT: number,
+      release: number,
+      peakGain: number,
+    ) => {
+      const t0 = ctx.currentTime + startSec;
+      const totalDuration = attack + decay + sustainT + release;
+
+      // Harmonics: fundamental + 2nd (octave) + 3rd (fifth above octave)
+      const harmonics: Array<{ ratio: number; amp: number; type: OscillatorType }> = [
+        { ratio: 1, amp: 1.0, type: "sine" },       // fundamental
+        { ratio: 2, amp: 0.25, type: "sine" },       // 2nd harmonic
+        { ratio: 3, amp: 0.12, type: "sine" },       // 3rd harmonic
+        { ratio: 1, amp: 0.06, type: "triangle" },   // body warmth
+      ];
+
+      for (const h of harmonics) {
+        const osc = ctx.createOscillator();
+        const envGain = ctx.createGain();
+
+        osc.type = h.type;
+        osc.frequency.setValueAtTime(freq * h.ratio, t0);
+
+        // ---- ADSR Envelope ----
+        const amp = peakGain * h.amp;
+        envGain.gain.setValueAtTime(0.0001, t0);
+        // A – Attack
+        envGain.gain.linearRampToValueAtTime(amp, t0 + attack);
+        // D – Decay
+        envGain.gain.linearRampToValueAtTime(
+          amp * sustain,
+          t0 + attack + decay,
+        );
+        // S – Sustain (hold)
+        envGain.gain.setValueAtTime(
+          amp * sustain,
+          t0 + attack + decay + sustainT,
+        );
+        // R – Release
+        envGain.gain.exponentialRampToValueAtTime(
+          0.0001,
+          t0 + totalDuration,
+        );
+
+        osc.connect(envGain);
+        // Route to both dry and reverb paths
+        envGain.connect(dryGain);
+        envGain.connect(convolver);
+
+        osc.start(t0);
+        osc.stop(t0 + totalDuration + 0.05);
+      }
     };
 
-    // Paytm iconic chime notes: C6 (1046Hz) -> E6 (1318Hz)
-    playTone(1046, 0.0, 0.18);
-    playTone(1318, 0.18, 0.45);
+    // ---- Paytm Soundbox iconic ascending two-note chime ----
+    // Note 1: C6 (1046 Hz) – short, bright tap
+    playTone(
+      1046,   // freq
+      0.0,    // start
+      0.008,  // attack  – snappy onset
+      0.05,   // decay
+      0.6,    // sustain level
+      0.12,   // sustain hold
+      0.15,   // release – gentle fade
+      0.28,   // peak gain
+    );
+
+    // Note 2: E6 (1318 Hz) – longer, ringing confirmation
+    playTone(
+      1318,   // freq
+      0.18,   // start – begins as first note decays
+      0.008,  // attack
+      0.06,   // decay
+      0.55,   // sustain level
+      0.25,   // sustain hold – longer ring
+      0.35,   // release – extended tail
+      0.30,   // peak gain – slightly louder
+    );
   } catch (e) {
     console.warn("AudioContext not supported or blocked by user gesture:", e);
   }

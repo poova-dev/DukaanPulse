@@ -1,4 +1,5 @@
 import { Bill, Product, DEFAULT_PRODUCTS } from "./billing";
+import { Context } from "./domain";
 import {
   LiveWeatherData,
   WEATHER_PRESETS,
@@ -23,7 +24,10 @@ export type TimeWindowDip = {
   todayRevenue: number;
   historicalMedianCount: number;
   dipPercent: number; // e.g. 50%
-  isFlagged: boolean; // dipPercent >= 25%
+  isFlagged: boolean; // dipPercent >= 25% AND isOpen AND hasCoverage
+  isOpen: boolean;
+  hasCoverage: boolean;
+  state: "eligible" | "closed" | "unknown";
   statusTa: string;
   statusHi: string;
   statusEn: string;
@@ -155,6 +159,7 @@ export function analyzeStoreBills(
   products: Product[] = DEFAULT_PRODUCTS,
   weather?: LiveWeatherData,
   currentHour?: number,
+  context?: Context,
 ): StoreAIAnalysis {
   const dates = [...new Set(bills.map((b) => b.date))].sort().reverse();
   const actualToday = dates.includes(todayDate) ? todayDate : dates[0] || "2026-11-15";
@@ -212,8 +217,30 @@ export function analyzeStoreBills(
   const lowestProduct =
     productSalesList.length > 0 ? productSalesList[productSalesList.length - 1] : null;
 
-  // Time Window Dips (DukaanPulse Signature Feature)
+  // Opening hours and coverage validation from context
+  const ex = context?.exceptions?.[actualToday];
+  const isShopClosedDay = ex?.closed === true;
+  const shopOpenMin = ex ? ex.open : (context?.open ?? 420); // default 07:00 (420 min)
+  const shopCloseMin = ex ? ex.close : (context?.close ?? 1320); // default 22:00 (1320 min)
+  const cov = context?.coverage?.[actualToday];
+
+  // Time Window Dips (DukaanPulse Signature Feature with strict Store Hours & Coverage verification)
   const timeWindows: TimeWindowDip[] = STANDARD_WINDOWS.map((win) => {
+    const winStartMin = win.start * 60;
+    const winEndMin = win.end * 60;
+
+    let isOpen = true;
+    let hasCoverage = true;
+    let state: "eligible" | "closed" | "unknown" = "eligible";
+
+    if (isShopClosedDay || shopCloseMin <= winStartMin || shopOpenMin >= winEndMin) {
+      isOpen = false;
+      state = "closed";
+    } else if (cov && (cov.state !== "confirmed" || cov.start > winStartMin || cov.end < winEndMin)) {
+      hasCoverage = false;
+      state = "unknown";
+    }
+
     const todayWindowBills = todayBills.filter(
       (b) => b.hour >= win.start && b.hour < win.end,
     );
@@ -244,7 +271,9 @@ export function analyzeStoreBills(
       historicalMedianCount > 0 && diff > 0
         ? Math.round((diff / historicalMedianCount) * 100)
         : 0;
-    const isFlagged = dipPercent >= 25 && todayCount < historicalMedianCount;
+
+    // Strict guard: ONLY flag a dip if the store is OPEN and payment coverage is CONFIRMED!
+    const isFlagged = isOpen && hasCoverage && dipPercent >= 25 && todayCount < historicalMedianCount;
 
     let statusTa = "விற்பனை சீராக உள்ளது";
     let statusHi = "बिक्री स्थिर और सामान्य है";
@@ -253,7 +282,21 @@ export function analyzeStoreBills(
     let recommendationHi = "सामान्य बिक्री जारी रखें।";
     let recommendationEn = "Maintain normal store operations.";
 
-    if (isFlagged) {
+    if (state === "closed") {
+      statusTa = "கடை திறக்கப்படாத நேரம் (Shop Closed)";
+      statusHi = "दुकान बंद रहने का समय (Shop Closed)";
+      statusEn = "Store closed during this window";
+      recommendationTa = "இந்த நேரத்தில் கடை திறக்கப்படவில்லை. அமைதியான நேரச் சலுகை பரிந்துரை பாதுகாப்பாக திரும்பப் பெறப்பட்டது.";
+      recommendationHi = "दुकान इस समय बंद रहती है। शांत-समय का ऑफ़र परामर्श सुरक्षित रूप से वापस लिया गया।";
+      recommendationEn = "Store is closed during this window. Quiet-hour offer advice safely withdrawn.";
+    } else if (state === "unknown") {
+      statusTa = "விற்பனைத் தரவு உறுதிப்படுத்தப்படவில்லை (Coverage Unconfirmed)";
+      statusHi = "बिक्री डेटा अपुष्ट है (Coverage Unconfirmed)";
+      statusEn = "Payment coverage unconfirmed";
+      recommendationTa = "பில்லிங் தரவுக் கவரேஜ் உறுதிப்படுத்தப்படாததால், தவறான தள்ளுபடி சலுகைகளைத் தவிர்க்க பரிந்துரை நிறுத்திவைக்கப்பட்டுள்ளது.";
+      recommendationHi = "बिलिंग डेटा कवरेज अपुष्ट होने के कारण ग़लत छूट से बचने हेतु ऑफ़र परामर्श रोक दिया गया है।";
+      recommendationEn = "Payment coverage unconfirmed for this window. Offer advice safely withheld to prevent unsafe discounts.";
+    } else if (isFlagged) {
       statusTa = `⚠️ ${dipPercent}% விற்பனை சரிவு! (முந்தைய சராசரி ${historicalMedianCount} பில்கள், இன்று ${todayCount} மட்டுமே)`;
       statusHi = `⚠️ ${dipPercent}% बिक्री गिरावट! (पिछला औसत ${historicalMedianCount} बिल, आज केवल ${todayCount})`;
       statusEn = `⚠️ ${dipPercent}% Sales Slump! (Past median ${historicalMedianCount} bills, today only ${todayCount})`;
@@ -281,6 +324,9 @@ export function analyzeStoreBills(
       historicalMedianCount,
       dipPercent,
       isFlagged,
+      isOpen,
+      hasCoverage,
+      state,
       statusTa,
       statusHi,
       statusEn,
@@ -316,10 +362,16 @@ export function analyzeStoreBills(
     ? `பொருட்கள் விற்பனை நிலவரம்: முதலிடத்தில் ${topProduct.nameTa} (${topProduct.units} எண்ணிக்கை, ₹${topProduct.revenue}). ${lowestProduct && lowestProduct.name !== topProduct.name ? `குறைந்த விற்பனையில் ${lowestProduct.nameTa} (${lowestProduct.units} எண்ணிக்கை).` : ""}`
     : `பொருட்கள் விற்பனை விவரம் பதிவு செய்யப்படுகிறது.`;
 
-  const offerAdviceTa =
-    flaggedDipWindows.length > 0
-      ? `DukaanPulse AI பரிந்துரை: சரிவு கண்டறியப்பட்ட ${flaggedDipWindows[0].windowLabel} நேரத்திற்கு 'டீ + சமோசா ₹25 காம்போ' அறிவித்து ₹150 முதல் ₹300 வரை கூடுதல் வருவாய் ஈட்டலாம். முடிவை நீங்களே அங்கீகரித்து சுவரொட்டி தயார் செய்யலாம்.`
-      : `தற்போதைய விற்பனை போக்கு சீராக உள்ளது. புதிய காம்போ சலுகைகள் மூலம் வாடிக்கையாளர் வருகையை மேலும் 15% வரை உயர்த்தலாம்.`;
+  let offerAdviceTa = "";
+  if (isShopClosedDay) {
+    offerAdviceTa = "இன்று கடை முழுமையாக விடுமுறை / மூடப்பட்டுள்ளது. அமைதியான நேரச் சலுகை திரும்பப் பெறப்பட்டுள்ளது.";
+  } else if (flaggedDipWindows.length > 0) {
+    offerAdviceTa = `DukaanPulse AI பரிந்துரை: திறந்திருக்கும் நேரத்தில் சரிவு கண்டறியப்பட்ட ${flaggedDipWindows[0].windowLabel} வேளையில் 'டீ + சமோசா ₹25 காம்போ' அறிவித்து ₹150 முதல் ₹300 வரை கூடுதல் வருவாய் ஈட்டலாம். முடிவை நீங்களே அங்கீகரித்து சுவரொட்டி தயார் செய்யலாம்.`;
+  } else if (timeWindows.some((w) => w.state !== "eligible")) {
+    offerAdviceTa = "திறக்கப்படாத அல்லது தரவுக் கவரேஜ் உறுதிப்படுத்தப்படாத நேரங்களைத் தவிர்த்து, வணிகம் நடைபெற்ற மற்ற நேரங்களில் விற்பனை சீராக உள்ளது. அமைதியான நேரச் சலுகை திரும்பப் பெறப்பட்டுள்ளது.";
+  } else {
+    offerAdviceTa = "தற்போதைய விற்பனை போக்கு சீராக உள்ளது. புதிய காம்போ சலுகைகள் மூலம் வாடிக்கையாளர் வருகையை மேலும் 15% வரை உயர்த்தலாம்.";
+  }
 
   // 6 Sales Reports Breakdown (Multi-day performance)
   const sixDates = dates.slice(0, 6);
@@ -399,16 +451,22 @@ export function analyzeStoreBills(
       id: "dec-steady-combo",
       category: "combo",
       priority: "medium",
-      icon: "🎉",
-      titleEn: "Teatime Popular Combo (Coffee + Medu Vada @ ₹22)",
-      titleTa: "பிரபலமான மாலை காம்போ (காபி + மெது வடை ₹22)",
-      titleHi: "लोकप्रिय टी-टाइम कॉम्बो (कॉफ़ी + मेदु वड़ा ₹22)",
-      badgeEn: "Customer Favorite",
-      badgeTa: "வாடிக்கையாளர் விருப்பம்",
-      badgeHi: "ग्राहकों की पहली पसंद",
-      contextEn: "Consistent order velocity detected across all working hours.",
-      contextTa: "அனைத்து நேரங்களிலும் சீரான வாடிக்கையாளர் வருகை உள்ளது.",
-      contextHi: "सभी कारोबारी घंटों में लगातार ग्राहकों की आवाजाही जारी है।",
+      icon: isShopClosedDay ? "🏪" : "🎉",
+      titleEn: isShopClosedDay ? "Store Closed - Quiet-Hour Advice Withheld" : "Teatime Popular Combo (Coffee + Medu Vada @ ₹22)",
+      titleTa: isShopClosedDay ? "கடை விடுமுறை - சலுகை பரிந்துரை திரும்பப் பெறப்பட்டது" : "பிரபலமான மாலை காம்போ (காபி + மெது வடை ₹22)",
+      titleHi: isShopClosedDay ? "दुकान अवकाश - शांत-घंटे का ऑफ़र परामर्श वापस लिया गया" : "लोकप्रिय टी-टाइम कॉम्बो (कॉफ़ी + मेदु वड़ा ₹22)",
+      badgeEn: isShopClosedDay ? "Store Closed" : "Customer Favorite",
+      badgeTa: isShopClosedDay ? "கடை விடுமுறை" : "வாடிக்கையாளர் விருப்பம்",
+      badgeHi: isShopClosedDay ? "दुकान अवकाश" : "ग्राहकों की पहली पसंद",
+      contextEn: isShopClosedDay
+        ? "Shop is marked closed. Quiet-hour slump discounts are safely withheld."
+        : "Consistent order velocity detected across operating hours; closed or unconfirmed windows safely excluded.",
+      contextTa: isShopClosedDay
+        ? "கடை மூடப்பட்டதாகப் பதிவு செய்யப்பட்டுள்ளது. அமைதியான நேரச் சரிவுத் தள்ளுபடிகள் பாதுகாப்பாக திரும்பப் பெறப்பட்டுள்ளன."
+        : "கடை திறந்திருக்கும் நேரங்களில் சீரான வாடிக்கையாளர் வருகை உள்ளது; மூடப்பட்ட/உறுதிப்படுத்தப்படாத நேரங்கள் விலக்கப்பட்டுள்ளன.",
+      contextHi: isShopClosedDay
+        ? "दुकान बंद दर्ज है। शांत समय की मंदी वाली छूट सुरक्षित रूप से रोक दी गई है।"
+        : "कामकाजी घंटों में ग्राहकों की आवाजाही सामान्य है; बंद व अपुष्ट घंटे सुरक्षित रूप से हटा दिए गए हैं।",
       recommendationEn: "Promote Filter Coffee with freshly fried Medu Vada to increase average bill size from ₹35 to ₹50.",
       recommendationTa: "ஃபில்டர் காபியுடன் மெது வடையை இணைத்து வழங்கி, சராசரி பில் மதிப்பை ₹35-லிருந்து ₹50-ஆக உயர்த்தலாம்.",
       recommendationHi: "फ़िल्टर कॉफ़ी के साथ गरमा-गरम मेदु वड़ा पेश करें ताकि औसत बिल ₹35 से बढ़कर ₹50 हो सके।",
