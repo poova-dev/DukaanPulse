@@ -339,7 +339,9 @@ export function execute(
         followup !== null && original !== null ? followup - original : null,
       deltaBaseline =
         followup !== null && baseline !== null ? followup - baseline : null;
-    const { rows: allRows, preview: _preview, ...report } = data;
+    const { rows: allRows, ...rest } = data;
+    const report = { ...rest };
+    delete (report as { preview?: unknown }).preview;
     e.outcome = {
       at,
       date: cmd.date,

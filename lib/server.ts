@@ -24,8 +24,9 @@ function getFallbackDb(): D1DatabaseLike {
     const sqliteModule = require("node:sqlite");
     const path = require("node:path");
     const fs = require("node:fs");
+    const os = require("node:os");
 
-    let dbFile = ":memory:";
+    let dbFile = path.join(os.tmpdir(), "dukaanpulse.sqlite");
     const wranglerDir = path.resolve(".wrangler/state/v3/d1/miniflare-D1DatabaseObject");
     if (fs.existsSync(wranglerDir)) {
       const files = fs.readdirSync(wranglerDir);
@@ -94,8 +95,36 @@ function getFallbackDb(): D1DatabaseLike {
     };
     return localFallbackDb;
   } catch {
-    // In-memory fallback
+    // In-memory fallback with /tmp file persistence
+    const os = require("node:os");
+    const path = require("node:path");
+    const fs = require("node:fs");
+
+    const tmpJsonPath = path.join(os.tmpdir(), "dukaanpulse-workspaces.json");
     const workspaces = new Map<string, { scope: string; version: number; payload: string; updated_at: string }>();
+    try {
+      if (fs.existsSync(tmpJsonPath)) {
+        const raw = fs.readFileSync(tmpJsonPath, "utf-8");
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            if (item?.scope) workspaces.set(item.scope, item);
+          }
+        }
+      }
+    } catch {
+      // Ignore initial file read errors
+    }
+
+    const flushWorkspaces = () => {
+      try {
+        const list = Array.from(workspaces.values());
+        fs.writeFileSync(tmpJsonPath, JSON.stringify(list), "utf-8");
+      } catch {
+        // Ignore file write errors
+      }
+    };
+
     const providerCache = new Map<string, { key: string; scope: string; status: string; payload: string; created_at: number }>();
     const providerUsage = new Map<string, number>();
 
@@ -111,17 +140,17 @@ function getFallbackDb(): D1DatabaseLike {
             if (sql.includes("FROM workspaces WHERE scope=?")) {
               const row = workspaces.get(boundParams[0] as string);
               if (!row) return null;
-              return (colName ? (row as any)[colName] : row) as unknown as T;
+              return (colName ? (row as Record<string, unknown>)[colName] : row) as unknown as T;
             }
             if (sql.includes("WHERE scope='config:sarvam'")) {
               const row = workspaces.get("config:sarvam");
               if (!row) return null;
-              return (colName ? (row as any)[colName] : row) as unknown as T;
+              return (colName ? (row as Record<string, unknown>)[colName] : row) as unknown as T;
             }
             if (sql.includes("FROM provider_cache WHERE key=?")) {
               const row = providerCache.get(boundParams[0] as string);
               if (!row) return null;
-              return (colName ? (row as any)[colName] : row) as unknown as T;
+              return (colName ? (row as Record<string, unknown>)[colName] : row) as unknown as T;
             }
             return null;
           },
@@ -131,17 +160,20 @@ function getFallbackDb(): D1DatabaseLike {
               const [scope, version, payload, updated_at] = boundParams as [string, number, string, string];
               if (!workspaces.has(scope)) {
                 workspaces.set(scope, { scope, version, payload, updated_at });
+                flushWorkspaces();
                 changes = 1;
               }
             } else if (sql.includes("INSERT OR REPLACE INTO workspaces")) {
               const [scope, version, payload, updated_at] = boundParams as [string, number, string, string];
               workspaces.set(scope, { scope, version, payload, updated_at });
+              flushWorkspaces();
               changes = 1;
             } else if (sql.includes("UPDATE workspaces SET")) {
               const [version, payload, updated_at, scope, previous] = boundParams as [number, string, string, string, number];
               const existing = workspaces.get(scope);
               if (existing && existing.version === previous) {
                 workspaces.set(scope, { scope, version, payload, updated_at });
+                flushWorkspaces();
                 changes = 1;
               }
             } else if (sql.includes("INSERT OR IGNORE INTO provider_usage")) {
@@ -331,6 +363,23 @@ export async function digest(v: string) {
     b.toString(16).padStart(2, "0"),
   ).join("");
 }
+let liveVerifiedState = false;
+
+export function setLiveVerified(v = true) {
+  liveVerifiedState = v;
+  if (typeof globalThis !== "undefined") {
+    (globalThis as unknown as { __SARVAM_LIVE_VERIFIED?: boolean }).__SARVAM_LIVE_VERIFIED = v;
+  }
+}
+
+export function isLiveVerified(): boolean {
+  if (liveVerifiedState) return true;
+  if (typeof globalThis !== "undefined") {
+    return !!(globalThis as unknown as { __SARVAM_LIVE_VERIFIED?: boolean }).__SARVAM_LIVE_VERIFIED;
+  }
+  return false;
+}
+
 export async function providerFetch(
   path: string,
   body: BodyInit,
@@ -338,7 +387,7 @@ export async function providerFetch(
 ) {
   const { key } = settings();
   if (!key) throw Error("notConfigured");
-  return fetch("https://api.sarvam.ai" + path, {
+  const res = await fetch("https://api.sarvam.ai" + path, {
     method: "POST",
     headers: {
       "api-subscription-key": key,
@@ -347,4 +396,8 @@ export async function providerFetch(
     body,
     signal: AbortSignal.timeout(20000),
   });
+  if (res.ok) {
+    setLiveVerified(true);
+  }
+  return res;
 }

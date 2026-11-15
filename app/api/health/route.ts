@@ -1,4 +1,4 @@
-import { response, settings, ensureSarvamKeyLoaded } from "@/lib/server";
+import { response, settings, ensureSarvamKeyLoaded, isLiveVerified } from "@/lib/server";
 export async function GET() {
   await ensureSarvamKeyLoaded();
   const c = settings();
@@ -11,6 +11,6 @@ export async function GET() {
     creditBalance: null,
     billingUnit: null,
     expiry: null,
-    liveVerified: false,
+    liveVerified: isLiveVerified(),
   });
 }

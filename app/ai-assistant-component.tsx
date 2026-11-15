@@ -68,12 +68,12 @@ export function AIAssistantScreen({
 
   // Live Weather & Climate State (Online Open-Meteo Integration)
   const [weather, setWeather] = useState<LiveWeatherData>(WEATHER_PRESETS.cloudy);
-  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherLoading, setWeatherLoading] = useState(true);
   const [weatherPreset, setWeatherPreset] = useState<string>("online");
+  const [aiVerifiedState, setAiVerifiedState] = useState<"verified" | "configured" | "local">("local");
 
   useEffect(() => {
     let active = true;
-    setWeatherLoading(true);
     fetchLiveOnlineWeather()
       .then((w) => {
         if (active) {
@@ -84,6 +84,19 @@ export function AIAssistantScreen({
       .catch(() => {
         if (active) setWeatherLoading(false);
       });
+
+    fetch("/api/health")
+      .then((r) => r.json())
+      .then((raw) => {
+        const d = (raw || {}) as { configured?: boolean; liveVerified?: boolean };
+        if (active) {
+          if (d.liveVerified) setAiVerifiedState("verified");
+          else if (d.configured) setAiVerifiedState("configured");
+          else setAiVerifiedState("local");
+        }
+      })
+      .catch(() => {});
+
     return () => {
       active = false;
     };
@@ -284,6 +297,9 @@ export function AIAssistantScreen({
         };
 
         if (data.success && data.answer) {
+          if (data.source === "sarvam") {
+            setAiVerifiedState("verified");
+          }
           const aiMsg: Message = {
             id: `ai_msg_${count}`,
             sender: "ai",
@@ -372,14 +388,26 @@ export function AIAssistantScreen({
           </div>
         </div>
 
-        <div className="ai-status-pill">
-          <span className="live-dot"></span>
+        <div className={`ai-status-pill status-${aiVerifiedState}`}>
+          <span className={`live-dot ${aiVerifiedState === "verified" ? "verified" : aiVerifiedState === "configured" ? "configured" : "local"}`}></span>
           <span>
-            {isTamil
-              ? "Sarvam AI & நேரடி குரல் இணைக்கப்பட்டுள்ளது"
-              : isHindi
-                ? "Sarvam AI और लाइव आवाज़ सक्रिय है"
-                : "Sarvam AI & Neural Voice Active"}
+            {aiVerifiedState === "verified"
+              ? isTamil
+                ? "Sarvam AI சரிபார்க்கப்பட்டது (நேரடி)"
+                : isHindi
+                  ? "Sarvam AI सत्यापित (सक्रिय)"
+                  : "Sarvam AI Verified (Active)"
+              : aiVerifiedState === "configured"
+                ? isTamil
+                  ? "Sarvam AI அமைக்கப்பட்டுள்ளது (சரிபார்ப்பு நிலுவையில்)"
+                  : isHindi
+                    ? "Sarvam AI कॉन्फ़िगर (सत्यापन प्रतीक्षारत)"
+                    : "Sarvam Configured (Pending Live Verification)"
+                : isTamil
+                  ? "விதிமுறை சார்ந்த AI இயங்குகிறது (உள்ளூர்)"
+                  : isHindi
+                    ? "नियम-आधारित AI इंजन सक्रिय (स्थानीय)"
+                    : "Rule-Based Engine Active (Local)"}
           </span>
         </div>
       </div>
@@ -968,7 +996,15 @@ export function AIAssistantScreen({
                 {m.sender === "ai" ? (
                   <span className="sender-tag ai-tag">
                     <Bot size={14} /> DukaanPulse AI
-                    {m.model && <small className="ai-model-tag">⚡ {m.model}</small>}
+                    {m.source === "sarvam" ? (
+                      <small className="ai-model-tag verified" style={{ background: "#d1fae5", color: "#065f46", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
+                        ✓ Sarvam AI Verified ({m.model || "sarvam-105b"})
+                      </small>
+                    ) : (
+                      <small className="ai-model-tag" style={{ background: "var(--surface-hover)", color: "#64748b", padding: "1px 6px", borderRadius: 4 }}>
+                        🛡️ Rule-based Grounded Engine
+                      </small>
+                    )}
                   </span>
                 ) : (
                   <span className="sender-tag user-tag">

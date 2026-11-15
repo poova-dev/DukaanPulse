@@ -5,9 +5,11 @@ export class WorkerEntrypoint {}
 export class DurableObject {}
 export class WorkflowEntrypoint {}
 
-export default {
+const cloudflareShim = {
   env,
   WorkerEntrypoint,
   DurableObject,
   WorkflowEntrypoint,
 };
+
+export default cloudflareShim;

@@ -38,6 +38,7 @@ export type Bill = {
   totalAmount: number; // in Rupees
   paymentMethod: "paytm_upi" | "cash";
   status: "completed";
+  isSynthetic?: boolean; // Clearly separates synthetic demo data from real merchant records
 };
 
 export const DEFAULT_PRODUCTS: Product[] = [
@@ -285,6 +286,7 @@ export function generateSeedBills(): Bill[] {
       totalAmount,
       paymentMethod: seq % 3 === 0 ? "cash" : "paytm_upi",
       status: "completed",
+      isSynthetic: true,
     };
   };
 
@@ -690,33 +692,103 @@ export function saveProducts(products: Product[]): void {
 }
 
 /**
- * Retrieve bills from localStorage or initialize with seed bills
+ * Retrieve bills from localStorage or initialize with seed bills.
+ * Clearly separates real merchant records from synthetic demonstration data.
  */
-export function getSavedBills(): Bill[] {
-  if (typeof window === "undefined") return generateSeedBills();
+export function getSavedBills(filter: "all" | "real" | "synthetic" = "all"): Bill[] {
+  if (typeof window === "undefined") {
+    const seed = generateSeedBills();
+    if (filter === "real") return [];
+    if (filter === "synthetic") return seed;
+    return seed;
+  }
   try {
     const raw = localStorage.getItem(STORAGE_BILLS_KEY);
+    let allBills: Bill[];
     if (!raw) {
-      const seed = generateSeedBills();
-      localStorage.setItem(STORAGE_BILLS_KEY, JSON.stringify(seed));
-      return seed;
+      allBills = generateSeedBills();
+      localStorage.setItem(STORAGE_BILLS_KEY, JSON.stringify(allBills));
+    } else {
+      allBills = JSON.parse(raw);
+      if (!Array.isArray(allBills)) {
+        allBills = generateSeedBills();
+        localStorage.setItem(STORAGE_BILLS_KEY, JSON.stringify(allBills));
+      }
     }
-    return JSON.parse(raw);
+
+    if (filter === "real") return allBills.filter((b) => b.isSynthetic !== true);
+    if (filter === "synthetic") return allBills.filter((b) => b.isSynthetic === true);
+    return allBills;
   } catch {
-    return generateSeedBills();
+    const seed = generateSeedBills();
+    if (filter === "real") return [];
+    if (filter === "synthetic") return seed;
+    return seed;
   }
 }
 
 /**
- * Save bills to localStorage
+ * Returns only genuine merchant bills recorded via POS or manual billing.
+ */
+export function getRealBills(): Bill[] {
+  return getSavedBills("real");
+}
+
+/**
+ * Returns only synthetic benchmark bills used for demo initialization.
+ */
+export function getSyntheticBills(): Bill[] {
+  return getSavedBills("synthetic");
+}
+
+/**
+ * Save bills to localStorage with error recovery
  */
 export function saveBills(bills: Bill[]): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_BILLS_KEY, JSON.stringify(bills));
   } catch (e) {
-    console.error("Failed to save bills:", e);
+    console.error("Failed to save bills to localStorage:", e);
   }
+}
+
+/**
+ * Records a real merchant bill, marked explicitly as non-synthetic.
+ */
+export function addRealBill(bill: Bill): Bill[] {
+  const current = getSavedBills("all");
+  const realBill: Bill = { ...bill, isSynthetic: false };
+  const updated = [realBill, ...current];
+  saveBills(updated);
+  return updated;
+}
+
+/**
+ * Clears synthetic demo bills, keeping only real merchant records.
+ */
+export function clearSyntheticBills(): Bill[] {
+  const realOnly = getSavedBills("real");
+  saveBills(realOnly);
+  return realOnly;
+}
+
+/**
+ * Restores the standard synthetic demo benchmark bills while preserving any real merchant bills.
+ */
+export function resetDemoBills(): Bill[] {
+  const realOnly = getSavedBills("real");
+  const freshSeed = generateSeedBills();
+  const merged = [...realOnly, ...freshSeed];
+  saveBills(merged);
+  return merged;
+}
+
+/**
+ * Clears all bills from local storage.
+ */
+export function clearAllBills(): void {
+  saveBills([]);
 }
 
 /**

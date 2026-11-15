@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import {
   Product,
   Bill,
-  CATEGORY_LABELS,
   ProductCategory,
   buildPaytmUPIUrl,
   generateQRCode,
@@ -12,14 +11,15 @@ import {
   getSavedProducts,
   saveProducts,
   getSavedBills,
-  saveBills,
-  playPaytmChime,
+  addRealBill,
+  clearSyntheticBills,
+  resetDemoBills,
   speakTamil,
   PAYTM_DEFAULT_CONFIG,
   getProductName,
   getCategoryLabel,
 } from "@/lib/billing";
-import { analyzeStoreBills, SarvamDecision } from "@/lib/ai-assistant";
+import { analyzeStoreBills } from "@/lib/ai-assistant";
 import {
   Plus,
   Trash2,
@@ -82,6 +82,10 @@ export function BillingScreen({
   const [billTotalAmount, setBillTotalAmount] = useState<number>(0);
   const [paymentConfirmed, setPaymentConfirmed] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+
+  // Saved bills list and real vs synthetic filtering
+  const [savedBillsList, setSavedBillsList] = useState<Bill[]>(() => getSavedBills("all"));
+  const [billFilter, setBillFilter] = useState<"all" | "real" | "synthetic">("all");
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
@@ -192,31 +196,13 @@ export function BillingScreen({
     setQrModalOpen(true);
   };
 
-  // Complete Payment (Simulate Paytm Soundbox & Tamil Voice Announcement)
+  // Complete Payment (Record Real Merchant Bill with verified entry)
   const handleConfirmPayment = () => {
     if (paymentConfirmed) return;
 
     setPaymentConfirmed(true);
 
-    // 1. Play authentic Paytm Soundbox chime
-    playPaytmChime();
-
-    // 2. Play Voice Announcement in selected language
-    setIsSpeaking(true);
-    const speechText = isTamil
-      ? `Paytm-இல் ${billTotalAmount} ரூபாய் பெறப்பட்டது! நன்றி!`
-      : isHindi
-        ? `Paytm पर ${billTotalAmount} रुपये प्राप्त हुए! धन्यवाद!`
-        : `Received ${billTotalAmount} rupees on Paytm! Thank you!`;
-
-    speakTamil(
-      speechText,
-      () => setIsSpeaking(true),
-      () => setIsSpeaking(false),
-      lang,
-    );
-
-    // 3. Save completed bill to repository
+    // Save completed real merchant bill to repository with explicit isSynthetic: false
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10);
     const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -231,6 +217,7 @@ export function BillingScreen({
         productId: item.product.id,
         name: item.product.name,
         nameTa: item.product.nameTa,
+        nameHi: item.product.nameHi,
         price: item.product.price,
         quantity: item.quantity,
         itemTotal: item.product.price * item.quantity,
@@ -239,11 +226,26 @@ export function BillingScreen({
       totalAmount: billTotalAmount,
       paymentMethod,
       status: "completed",
+      isSynthetic: false,
     };
 
-    const existingBills = getSavedBills();
-    const updatedBills = [newBill, ...existingBills];
-    saveBills(updatedBills);
+    const updated = addRealBill(newBill);
+    setSavedBillsList(updated);
+
+    // Honest receipt verification announcement (no unsupported Paytm soundbox claims)
+    setIsSpeaking(true);
+    const speechText = isTamil
+      ? `பில் ${currentBillId} பதிவு செய்யப்பட்டது. ${billTotalAmount} ரூபாய் பெறப்பட்டது.`
+      : isHindi
+        ? `बिल ${currentBillId} दर्ज हुआ। ${billTotalAmount} रुपये प्राप्त हुए।`
+        : `Bill ${currentBillId} recorded. ${billTotalAmount} rupees received.`;
+
+    speakTamil(
+      speechText,
+      () => setIsSpeaking(true),
+      () => setIsSpeaking(false),
+      lang,
+    );
   };
 
   const handleNextCustomer = () => {
@@ -534,6 +536,154 @@ export function BillingScreen({
       )}
 
       {/* ========================================== */}
+      {/* RECORDED BILLS & SEPARATION OF DEMO / REAL DATA */}
+      {/* ========================================== */}
+      <section className="recent-bills-panel" style={{ marginTop: 28, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+              <Clock3 size={18} style={{ color: "var(--navy)" }} />
+              <span>{isTamil ? "பதிவு செய்யப்பட்ட பில்கள் & பரிவர்த்தனைகள்" : isHindi ? "दर्ज बिल और बिक्री इतिहास" : "Recorded Bills & POS History"}</span>
+            </h2>
+            <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>
+              {isTamil
+                ? "நேரடி கடையில் பதிவான உண்மையான பில்கள் மற்றும் மாதிரி தரவு தெளிவாக பிரிக்கப்பட்டுள்ளது."
+                : isHindi
+                  ? "वास्तविक पीओएस रिकॉर्ड और सिंथेटिक बेंचमार्क डेटा को स्पष्ट रूप से अलग किया गया है।"
+                  : "Clearly separates genuine merchant records from synthetic benchmark demo data."}
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", background: "var(--surface-hover)", padding: 3, borderRadius: 8, border: "1px solid var(--border)" }}>
+              <button
+                type="button"
+                onClick={() => setBillFilter("all")}
+                style={{
+                  padding: "5px 10px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: 6,
+                  border: "none",
+                  background: billFilter === "all" ? "var(--navy)" : "transparent",
+                  color: billFilter === "all" ? "#fff" : "inherit",
+                  cursor: "pointer",
+                }}
+              >
+                {isTamil ? "அனைத்தும்" : isHindi ? "सभी" : "All"} ({savedBillsList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillFilter("real")}
+                style={{
+                  padding: "5px 10px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: 6,
+                  border: "none",
+                  background: billFilter === "real" ? "#059669" : "transparent",
+                  color: billFilter === "real" ? "#fff" : "inherit",
+                  cursor: "pointer",
+                }}
+              >
+                {isTamil ? "நேரடி POS" : isHindi ? "वास्तविक POS" : "Real POS"} ({savedBillsList.filter((b) => b.isSynthetic !== true).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillFilter("synthetic")}
+                style={{
+                  padding: "5px 10px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: 6,
+                  border: "none",
+                  background: billFilter === "synthetic" ? "#0284c7" : "transparent",
+                  color: billFilter === "synthetic" ? "#fff" : "inherit",
+                  cursor: "pointer",
+                }}
+              >
+                {isTamil ? "மாதிரி" : isHindi ? "डेमो" : "Demo"} ({savedBillsList.filter((b) => b.isSynthetic === true).length})
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => {
+                if (confirm(isTamil ? "மாதிரி பில்களை அழிக்கவா? நேரடி POS பில்கள் பாதுகாக்கப்படும்." : isHindi ? "डेमो डेटा हटाएं? वास्तविक बिल सुरक्षित रहेंगे।" : "Clear demo data? Real merchant POS bills will be preserved.")) {
+                  const updated = clearSyntheticBills();
+                  setSavedBillsList(updated);
+                }
+              }}
+              style={{ fontSize: 11, padding: "5px 9px", color: "var(--warn)", border: "1px solid var(--border)", borderRadius: 6, background: "transparent", cursor: "pointer" }}
+            >
+              {isTamil ? "மாதிரி தரவை நீக்குக" : isHindi ? "डेमो डेटा साफ़ करें" : "Clear Demo Data"}
+            </button>
+
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => {
+                const updated = resetDemoBills();
+                setSavedBillsList(updated);
+              }}
+              style={{ fontSize: 11, padding: "5px 9px", color: "#0284c7", border: "1px solid var(--border)", borderRadius: 6, background: "transparent", cursor: "pointer" }}
+            >
+              {isTamil ? "மாதிரி தரவை மீட்டமை" : isHindi ? "डेमो डेटा पुनर्स्थापित करें" : "Restore Demo Benchmark"}
+            </button>
+          </div>
+        </div>
+
+        <div className="table-scroll" style={{ maxHeight: 260, overflowY: "auto" }}>
+          <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left", color: "#64748b" }}>
+                <th style={{ padding: "8px 6px" }}>{isTamil ? "வகை" : isHindi ? "प्रकार" : "Type"}</th>
+                <th style={{ padding: "8px 6px" }}>{isTamil ? "பில் எண்" : isHindi ? "बिल आईडी" : "Bill ID"}</th>
+                <th style={{ padding: "8px 6px" }}>{isTamil ? "நேரம்" : isHindi ? "समय" : "Time"}</th>
+                <th style={{ padding: "8px 6px" }}>{isTamil ? "பொருட்கள்" : isHindi ? "आइटम" : "Items"}</th>
+                <th style={{ padding: "8px 6px" }}>{isTamil ? "தொகை" : isHindi ? "राशि" : "Amount"}</th>
+                <th style={{ padding: "8px 6px" }}>{isTamil ? "கட்டணம்" : isHindi ? "भुगतान" : "Payment"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {savedBillsList
+                .filter((b) => {
+                  if (billFilter === "real") return b.isSynthetic !== true;
+                  if (billFilter === "synthetic") return b.isSynthetic === true;
+                  return true;
+                })
+                .slice(0, 15)
+                .map((b) => (
+                  <tr key={b.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                    <td style={{ padding: "7px 6px" }}>
+                      {b.isSynthetic ? (
+                        <span style={{ fontSize: 10, padding: "2px 6px", background: "#e0f2fe", color: "#0369a1", borderRadius: 4, fontWeight: 600 }}>
+                          {isTamil ? "மாதிரி" : isHindi ? "डेमो" : "Demo"}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 10, padding: "2px 6px", background: "#d1fae5", color: "#065f46", borderRadius: 4, fontWeight: 700 }}>
+                          {isTamil ? "நேரடி POS" : isHindi ? "वास्तविक POS" : "Real POS"}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: "7px 6px", fontWeight: 600, fontFamily: "monospace" }}>{b.id}</td>
+                    <td style={{ padding: "7px 6px", color: "#64748b" }}>{b.date} {b.time}</td>
+                    <td style={{ padding: "7px 6px" }}>
+                      {b.items.map((i) => `${isTamil ? i.nameTa : i.name} (${i.quantity})`).join(", ")}
+                    </td>
+                    <td style={{ padding: "7px 6px", fontWeight: 700 }}>₹{b.totalAmount}</td>
+                    <td style={{ padding: "7px 6px", textTransform: "uppercase", fontSize: 11 }}>
+                      {b.paymentMethod === "paytm_upi" ? "UPI QR" : "Cash"}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ========================================== */}
       {/* PAYTM QR CODE & SOUNDBOX MODAL */}
       {/* ========================================== */}
       {qrModalOpen && (
@@ -592,29 +742,36 @@ export function BillingScreen({
                 <span className="amount-value">₹{billTotalAmount}</span>
               </div>
 
-              {/* Paytm Soundbox Simulation Box */}
+              {/* Merchant Payment Entry Box */}
               {!paymentConfirmed ? (
                 <div className="soundbox-box">
                   <p className="soundbox-hint">
                     {isTamil
-                      ? "வாடிக்கையாளர் ஸ்கேன் செய்தவுடன் 'கட்டணம் உறுதி' கிளிக் செய்து Paytm சவுண்ட்பாக்ஸ் ஒலி அறிவிப்பைக் கேளுங்கள்:"
+                      ? "வாடிக்கையாளர் ஸ்கேன் செய்து பணம் செலுத்தியதும், வணிகர் கட்டணத்தை சரிபார்த்து 'கட்டணம் பதிவு செய்க' என்பதைக் கிளிக் செய்யவும்:"
                       : isHindi
-                        ? "ग्राहक द्वारा स्कैन किए जाने पर 'भुगतान पुष्टि' पर क्लिक करें और Paytm साउंडबॉक्स उद्घोषणा सुनें:"
-                        : "Simulate Paytm Soundbox instant voice announcement upon receiving payment:"}
+                        ? "ग्राहक द्वारा स्कैन कर भुगतान करने पर, व्यापारी द्वारा सत्यापन कर 'भुगतान दर्ज करें' पर क्लिक करें:"
+                        : "Customer scans dynamic QR. Once payment is verified received by the merchant, click Record Payment:"}
                   </p>
                   <button
                     className="paytm-soundbox-play-btn"
                     onClick={handleConfirmPayment}
                   >
-                    <Volume2 size={20} className="pulse-icon" />
+                    <CheckCircle2 size={20} className="pulse-icon" />
                     <span>
                       {isTamil
-                        ? "கட்டணம் உறுதி & ஒலி அறிவிப்பு"
+                        ? "கட்டணம் பதிவு செய்க (Merchant Verified)"
                         : isHindi
-                          ? "भुगतान पुष्टि और साउंडबॉक्स उद्घोषणा"
-                          : "Confirm & Play Paytm Soundbox Voice"}
+                          ? "भुगतान दर्ज करें (व्यापारी सत्यापन)"
+                          : "Record Payment Received (Merchant Verified)"}
                     </span>
                   </button>
+                  <small style={{ fontSize: 11, color: "#64748b", marginTop: 4, display: "block" }}>
+                    {isTamil
+                      ? "நேரடி வணிகர் பதிவு. தானியங்கி Paytm கேட்வே அழைப்பு இல்லை."
+                      : isHindi
+                        ? "व्यापारी द्वारा मैन्युअल प्रविष्टि। कोई स्वचालित Paytm गेटवे कॉलबैक नहीं।"
+                        : "Manual merchant entry. Independent prototype; no automated Paytm gateway callback."}
+                  </small>
                 </div>
               ) : (
                 <div className="payment-success-card">
@@ -623,17 +780,17 @@ export function BillingScreen({
                     <div>
                       <h3>
                         {isTamil
-                          ? "கட்டணம் வெற்றிகரமாக பெறப்பட்டது!"
+                          ? "கட்டணம் சரிபார்க்கப்பட்டு பதிவு செய்யப்பட்டது!"
                           : isHindi
-                            ? "भुगतान सफलतापूर्वक प्राप्त हुआ!"
-                            : "Payment Received Successfully!"}
+                            ? "भुगतान सत्यापित और दर्ज किया गया!"
+                            : "Payment Verified & Recorded!"}
                       </h3>
                       <p className="voice-transcript">
                         {isTamil
-                          ? `🔊 "Paytm-இல் ${billTotalAmount} ரூபாய் பெறப்பட்டது! நன்றி!"`
+                          ? `🔊 "பில் ${currentBillId} பதிவு செய்யப்பட்டது. ${billTotalAmount} ரூபாய் பெறப்பட்டது."`
                           : isHindi
-                            ? `🔊 "Paytm पर ${billTotalAmount} रुपये प्राप्त हुए! धन्यवाद!"`
-                            : `🔊 "Received ${billTotalAmount} rupees on Paytm! Thank you!"`}
+                            ? `🔊 "बिल ${currentBillId} दर्ज हुआ। ${billTotalAmount} रुपये प्राप्त हुए।"`
+                            : `🔊 "Bill ${currentBillId} recorded. ${billTotalAmount} rupees received."`}
                       </p>
                     </div>
                   </div>
@@ -646,10 +803,10 @@ export function BillingScreen({
                       <span className="wave"></span>
                       <span className="wave-text">
                         {isTamil
-                          ? "ஒலி அறிவிப்பு ஒலிக்கிறது..."
+                          ? "ரசீது உறுதிப்படுத்தல் ஒலிக்கிறது..."
                           : isHindi
-                            ? "साउंडबॉक्स बोल रहा है..."
-                            : "Speaking voice announcement..."}
+                            ? "रसीद सत्यापन उद्घोषणा..."
+                            : "Playing receipt confirmation..."}
                       </span>
                     </div>
                   )}
@@ -796,21 +953,31 @@ export function AnalyticsScreen({
   const [selectedDate, setSelectedDate] = useState<string>("2026-11-15");
   const [bills] = useState<Bill[]>(() => getSavedBills());
   const [products] = useState<Product[]>(() => getSavedProducts());
+  const [datasetFilter, setDatasetFilter] = useState<"all" | "real" | "synthetic">("all");
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [spokenTranscript, setSpokenTranscript] = useState<string>("");
 
+  const filteredBills = useMemo(() => {
+    if (datasetFilter === "real") return bills.filter((b) => b.isSynthetic !== true);
+    if (datasetFilter === "synthetic") return bills.filter((b) => b.isSynthetic === true);
+    return bills;
+  }, [bills, datasetFilter]);
+
+  const realCount = useMemo(() => bills.filter((b) => b.isSynthetic !== true).length, [bills]);
+  const syntheticCount = useMemo(() => bills.filter((b) => b.isSynthetic === true).length, [bills]);
+
   const analytics = useMemo(() => {
-    return computeSalesAnalytics(bills, selectedDate, products);
-  }, [bills, selectedDate, products]);
+    return computeSalesAnalytics(filteredBills, selectedDate, products);
+  }, [filteredBills, selectedDate, products]);
 
   const availableDates = useMemo(() => {
-    return [...new Set(bills.map((b) => b.date))].sort().reverse();
-  }, [bills]);
+    return [...new Set(filteredBills.map((b) => b.date))].sort().reverse();
+  }, [filteredBills]);
 
   const storeAI = useMemo(() => {
     const targetDate = selectedDate === "all" ? availableDates[0] || "2026-11-15" : selectedDate;
-    return analyzeStoreBills(bills, targetDate, products);
-  }, [bills, selectedDate, products, availableDates]);
+    return analyzeStoreBills(filteredBills, targetDate, products);
+  }, [filteredBills, selectedDate, products, availableDates]);
 
   // Voice playback triggers
   const handlePlayVoice = (text: string) => {
@@ -856,6 +1023,79 @@ export function AnalyticsScreen({
             <ShoppingCart size={16} />
             <span>{isTamil ? "பில்லிங் செல்ல" : isHindi ? "बिलिंग पर जाएं" : "Go to Billing"}</span>
           </button>
+        </div>
+      </div>
+
+      {/* Dataset Separation Bar: Real Records vs Synthetic Demo Benchmark */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            {isTamil ? "தரவு ஆதாரம் (Dataset):" : isHindi ? "डेटा स्रोत (Dataset):" : "Dataset:"}
+          </span>
+          <div style={{ display: "flex", background: "var(--surface-hover)", padding: 2, borderRadius: 6, border: "1px solid var(--border)" }}>
+            <button
+              type="button"
+              onClick={() => setDatasetFilter("all")}
+              style={{
+                padding: "4px 10px",
+                fontSize: 11.5,
+                fontWeight: 600,
+                borderRadius: 5,
+                border: "none",
+                background: datasetFilter === "all" ? "var(--navy)" : "transparent",
+                color: datasetFilter === "all" ? "#fff" : "inherit",
+                cursor: "pointer",
+              }}
+            >
+              {isTamil ? "அனைத்தும்" : isHindi ? "सभी" : "All Records"} ({bills.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDatasetFilter("real")}
+              style={{
+                padding: "4px 10px",
+                fontSize: 11.5,
+                fontWeight: 600,
+                borderRadius: 5,
+                border: "none",
+                background: datasetFilter === "real" ? "#059669" : "transparent",
+                color: datasetFilter === "real" ? "#fff" : "inherit",
+                cursor: "pointer",
+              }}
+            >
+              {isTamil ? "நேரடி POS மட்டும்" : isHindi ? "केवल वास्तविक POS" : "Real POS Only"} ({realCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDatasetFilter("synthetic")}
+              style={{
+                padding: "4px 10px",
+                fontSize: 11.5,
+                fontWeight: 600,
+                borderRadius: 5,
+                border: "none",
+                background: datasetFilter === "synthetic" ? "#0284c7" : "transparent",
+                color: datasetFilter === "synthetic" ? "#fff" : "inherit",
+                cursor: "pointer",
+              }}
+            >
+              {isTamil ? "மாதிரி பெஞ்ச்மார்க்" : isHindi ? "डेमो बेंचमार्क" : "Demo Benchmark"} ({syntheticCount})
+            </button>
+          </div>
+        </div>
+
+        <div style={{ fontSize: 11.5, color: "#64748b" }}>
+          {datasetFilter === "real" ? (
+            realCount > 0 ? (
+              <span style={{ color: "#059669", fontWeight: 600 }}>✓ {isTamil ? `${realCount} நேரடி கடை விற்பனை பில்கள் ஆய்வு செய்யப்படுகின்றன.` : isHindi ? `${realCount} वास्तविक पीओएस बिलों का विश्लेषण किया जा रहा है।` : `Analyzing ${realCount} genuine store POS bills.`}</span>
+            ) : (
+              <span style={{ color: "var(--warn)", fontWeight: 500 }}>⚠️ {isTamil ? "நேரடி பில்கள் இன்னும் பதிவு செய்யப்படவில்லை. POS-ல் ஒரு பில்லைப் பதிவு செய்யவும்." : isHindi ? "अभी तक कोई वास्तविक बिल दर्ज नहीं है। पीओएस पर बिल बनाएं।" : "No real POS bills recorded yet. Record a bill in Quick Billing."}</span>
+            )
+          ) : datasetFilter === "synthetic" ? (
+            <span style={{ color: "#0284c7", fontWeight: 600 }}>🔬 {isTamil ? "மாதிரி கடைப் புள்ளிவிவரங்கள் (Synthetic Benchmark)." : isHindi ? "सिंथेटिक बेंचमार्क डेटा (डेमो)।" : "Synthetic 6-day store benchmark demonstration."}</span>
+          ) : (
+            <span>📈 {isTamil ? "ஒருங்கிணைந்த தரவு (நேரடி + மாதிரி)." : isHindi ? "संयुक्त डेटा (वास्तविक + डेमो)।" : "Combined dataset (Real POS + Demo Benchmark)."}</span>
+          )}
         </div>
       </div>
 
