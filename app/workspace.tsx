@@ -328,24 +328,8 @@ export default function Workspace() {
                   localStorage.setItem(STORAGE_STATE_KEY, JSON.stringify(d.state));
                 } catch {}
                 return d.state!;
-              } else if (prev.version > d.state!.version) {
-                // Local state is newer, push to server
-                fetch("/api/state", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ ...prev, expectedVersion: d.state!.version }),
-                })
-                  .then((res) => res.json())
-                  .then((raw) => {
-                    const synced = raw as StateResponse;
-                    if (synced?.state) {
-                      try {
-                        localStorage.setItem(STORAGE_STATE_KEY, JSON.stringify(synced.state));
-                      } catch {}
-                    }
-                  })
-                  .catch(() => {});
               }
+              // If client local state has unsynced progress, keep client state
               return prev;
             });
             setError("");
