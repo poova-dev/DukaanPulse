@@ -213,6 +213,7 @@ export function generateSeedBills(): Bill[] {
     "2026-11-13",
     "2026-11-12",
     "2026-11-11",
+    "2026-11-10",
   ];
 
   // Helper to create a bill
@@ -257,7 +258,7 @@ export function generateSeedBills(): Bill[] {
   dates.forEach((date, dIndex) => {
     let billSeq = 1;
     // Morning rush (7:00 AM - 10:00 AM) - High activity
-    const morningRounds = 9 - dIndex;
+    const morningRounds = 9 - (dIndex % 4);
     for (let i = 0; i < morningRounds; i++) {
       const h = 7 + (i % 3);
       const m = (i * 17) % 60;

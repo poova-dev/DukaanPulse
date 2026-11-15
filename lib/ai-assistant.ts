@@ -1,4 +1,16 @@
 import { Bill, Product, DEFAULT_PRODUCTS } from "./billing";
+import {
+  LiveWeatherData,
+  WEATHER_PRESETS,
+  getWeatherAndTimeAdvice,
+} from "./weather";
+
+export type DayReportSummary = {
+  date: string;
+  revenue: number;
+  billsCount: number;
+  topItem: string;
+};
 
 export type TimeWindowDip = {
   windowLabel: string; // e.g. "13:00 - 16:00 (மதியம்)"
@@ -34,6 +46,17 @@ export type StoreAIAnalysis = {
   timeWindows: TimeWindowDip[];
   flaggedDipWindows: TimeWindowDip[];
 
+  // 6 Sales Reports Breakdown (Multi-day performance)
+  sixDayReports: DayReportSummary[];
+  total6DayRevenue: number;
+  avg6DayDailyRevenue: number;
+
+  // Live Weather & Climate Integration
+  activeWeather: LiveWeatherData;
+  weatherAdvice: ReturnType<typeof getWeatherAndTimeAdvice>;
+  weatherReportTa: string;
+  sixDaySummaryTa: string;
+
   // Spoken Tamil briefing
   fullReportTa: string;
   dipSummaryTa: string;
@@ -58,6 +81,8 @@ export function analyzeStoreBills(
   bills: Bill[],
   todayDate = "2026-11-15",
   products: Product[] = DEFAULT_PRODUCTS,
+  weather?: LiveWeatherData,
+  currentHour?: number,
 ): StoreAIAnalysis {
   const dates = [...new Set(bills.map((b) => b.date))].sort().reverse();
   const actualToday = dates.includes(todayDate) ? todayDate : dates[0] || "2026-11-15";
@@ -204,6 +229,39 @@ export function analyzeStoreBills(
       ? `DukaanPulse AI பரிந்துரை: சரிவு கண்டறியப்பட்ட ${flaggedDipWindows[0].windowLabel} நேரத்திற்கு 'டீ + சமோசா ₹25 காம்போ' அறிவித்து ₹150 முதல் ₹300 வரை கூடுதல் வருவாய் ஈட்டலாம். முடிவை நீங்களே அங்கீகரித்து சுவரொட்டி தயார் செய்யலாம்.`
       : `தற்போதைய விற்பனை போக்கு சீராக உள்ளது. புதிய காம்போ சலுகைகள் மூலம் வாடிக்கையாளர் வருகையை மேலும் 15% வரை உயர்த்தலாம்.`;
 
+  // 6 Sales Reports Breakdown (Multi-day performance)
+  const sixDates = dates.slice(0, 6);
+  const sixDayReports: DayReportSummary[] = sixDates.map((d) => {
+    const dBills = bills.filter((b) => b.date === d);
+    const dRev = dBills.reduce((acc, b) => acc + b.totalAmount, 0);
+    const dCount = dBills.length;
+    const dProdCounts: Record<string, number> = {};
+    dBills.forEach((b) => {
+      b.items.forEach((it) => {
+        dProdCounts[it.name] = (dProdCounts[it.name] || 0) + it.quantity;
+      });
+    });
+    const topEntry = Object.entries(dProdCounts).sort((a, b) => b[1] - a[1])[0];
+    return {
+      date: d,
+      revenue: dRev,
+      billsCount: dCount,
+      topItem: topEntry ? topEntry[0] : "Masala Tea",
+    };
+  });
+  const total6DayRevenue = sixDayReports.reduce((acc, r) => acc + r.revenue, 0);
+  const avg6DayDailyRevenue = Math.round(
+    total6DayRevenue / (sixDayReports.length || 1),
+  );
+  const bestDay = [...sixDayReports].sort((a, b) => b.revenue - a.revenue)[0];
+  const sixDaySummaryTa = `கடந்த 6 நாட்களின் விற்பனை அறிக்கை: மொத்தம் ₹${total6DayRevenue} வசூல், தினசரி சராசரி ₹${avg6DayDailyRevenue}. அதிகபட்ச விற்பனை நாள் ${bestDay?.date || actualToday} (₹${bestDay?.revenue || todayRevenue}). இன்று ₹${todayRevenue} வசூலாகியுள்ளது.`;
+
+  // Live Weather & Climate Integration
+  const activeWeather = weather || WEATHER_PRESETS.cloudy;
+  const activeHour = currentHour ?? new Date().getHours();
+  const weatherAdvice = getWeatherAndTimeAdvice(activeWeather, activeHour, true);
+  const weatherReportTa = `தற்போதைய வானிலை: ${activeWeather.emoji} ${activeWeather.conditionLabelTa} (${activeWeather.tempC}°C, ஈரப்பதம் ${activeWeather.humidity}%). ${weatherAdvice.adviceText} பரிந்துரைக்கப்படும் பொருட்கள்: ${weatherAdvice.recommendedItems.join(", ")}.`;
+
   return {
     todayDate: actualToday,
     yesterdayDate,
@@ -220,6 +278,13 @@ export function analyzeStoreBills(
     productSalesList,
     timeWindows,
     flaggedDipWindows,
+    sixDayReports,
+    total6DayRevenue,
+    avg6DayDailyRevenue,
+    activeWeather,
+    weatherAdvice,
+    weatherReportTa,
+    sixDaySummaryTa,
     fullReportTa,
     dipSummaryTa,
     productSummaryTa,
@@ -235,11 +300,67 @@ export function answerStoreAIQuestion(
   bills: Bill[],
   todayDate = "2026-11-15",
   products: Product[] = DEFAULT_PRODUCTS,
+  weather?: LiveWeatherData,
+  currentHour?: number,
 ): { title: string; answerTa: string; answerEn: string; topic: string } {
-  const analysis = analyzeStoreBills(bills, todayDate, products);
+  const analysis = analyzeStoreBills(bills, todayDate, products, weather, currentHour);
   const q = question.toLowerCase();
 
-  // 1. Time-Window Dip question ("எந்த நேரத்தில்", "நேரம்", "time", "slump", "dead", "window", "sound to time")
+  // 1. Weather / Climate question ("வானிலை", "climate", "weather", "மழை", "rain", "வெயில்", "குளிர்")
+  if (
+    q.includes("வானிலை") ||
+    q.includes("weather") ||
+    q.includes("climate") ||
+    q.includes("மழை") ||
+    q.includes("rain") ||
+    q.includes("வெயில்") ||
+    q.includes("சூடு") ||
+    q.includes("குளிர்")
+  ) {
+    return {
+      title: "🌤️ நேரடி வானிலை & தேவை வழிகாட்டுதல் (Weather & Demand Forecast)",
+      answerTa: analysis.weatherReportTa,
+      answerEn: `Current weather: ${analysis.activeWeather.conditionLabelEn} (${analysis.activeWeather.tempC}°C, humidity ${analysis.activeWeather.humidity}%). ${analysis.weatherAdvice.adviceText}`,
+      topic: "weather",
+    };
+  }
+
+  // 2. 6 Sales Reports Breakdown question ("6 நாள்", "6 sale", "ஆறு நாள்", "six day", "வரலாறு", "trend")
+  if (
+    q.includes("6 நாள்") ||
+    q.includes("6 sale") ||
+    q.includes("ஆறு நாள்") ||
+    q.includes("six") ||
+    q.includes("வரலாறு") ||
+    q.includes("trend") ||
+    q.includes("history")
+  ) {
+    return {
+      title: "📊 6 நாள் விற்பனை அறிக்கை & போக்கு (6-Day Sales Trend)",
+      answerTa: analysis.sixDaySummaryTa,
+      answerEn: `6-Day Sales Report: Total revenue ₹${analysis.total6DayRevenue}, Daily average ₹${analysis.avg6DayDailyRevenue}. Today recorded ₹${analysis.todayRevenue}.`,
+      topic: "six_day_report",
+    };
+  }
+
+  // 3. Smart Store Guide question ("வழிகாட்டி", "guide", "assist", "ஆலோசனை", "உதவி")
+  if (
+    q.includes("வழிகாட்டி") ||
+    q.includes("guide") ||
+    q.includes("assist") ||
+    q.includes("ஆலோசனை") ||
+    q.includes("உதவி")
+  ) {
+    const fullGuideTa = `DukaanPulse Sarvam AI நேரடி வழிகாட்டி: ${analysis.weatherAdvice.adviceText} கடந்த 6 நாட்களில் தினசரி சராசரி ₹${analysis.avg6DayDailyRevenue} வசூலாகியுள்ளது. ${analysis.flaggedDipWindows.length > 0 ? `கண்டறியப்பட்ட சரிவு நேரம்: ${analysis.flaggedDipWindows[0].windowLabel}.` : "விற்பனை சீராக உள்ளது."} சிறந்த பரிந்துரை: ${analysis.weatherAdvice.recommendedItems.join(", ")} காம்போ சலுகை தயார் செய்யவும்.`;
+    return {
+      title: "🤖 Sarvam AI நேரடி வணிக வழிகாட்டி (Smart Store Guide)",
+      answerTa: fullGuideTa,
+      answerEn: `Sarvam AI Store Guide: ${analysis.weatherAdvice.adviceText} 6-Day daily average is ₹${analysis.avg6DayDailyRevenue}. Focus on ${analysis.weatherAdvice.recommendedItems.join(", ")}.`,
+      topic: "guide",
+    };
+  }
+
+  // 4. Time-Window Dip question ("எந்த நேரத்தில்", "நேரம்", "time", "slump", "dead", "window", "sound to time")
   if (
     q.includes("நேர") ||
     q.includes("time") ||

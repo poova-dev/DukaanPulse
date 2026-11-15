@@ -14,6 +14,11 @@ import {
   StoreAIAnalysis,
 } from "@/lib/ai-assistant";
 import {
+  LiveWeatherData,
+  WEATHER_PRESETS,
+  fetchLiveOnlineWeather,
+} from "@/lib/weather";
+import {
   Mic,
   Volume2,
   VolumeX,
@@ -27,6 +32,9 @@ import {
   CheckCircle2,
   SlidersHorizontal,
   Zap,
+  CloudSun,
+  Layers,
+  RefreshCw,
 } from "lucide-react";
 
 type Message = {
@@ -53,9 +61,47 @@ export function AIAssistantScreen({
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
+  // Live Weather & Climate State (Online Open-Meteo Integration)
+  const [weather, setWeather] = useState<LiveWeatherData>(WEATHER_PRESETS.cloudy);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherPreset, setWeatherPreset] = useState<string>("online");
+
+  useEffect(() => {
+    let active = true;
+    setWeatherLoading(true);
+    fetchLiveOnlineWeather()
+      .then((w) => {
+        if (active) {
+          setWeather(w);
+          setWeatherLoading(false);
+        }
+      })
+      .catch(() => {
+        if (active) setWeatherLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSelectWeather = (key: string) => {
+    setWeatherPreset(key);
+    if (key === "online") {
+      setWeatherLoading(true);
+      fetchLiveOnlineWeather().then((w) => {
+        setWeather(w);
+        setWeatherLoading(false);
+      });
+    } else if (key in WEATHER_PRESETS) {
+      setWeather(WEATHER_PRESETS[key as keyof typeof WEATHER_PRESETS]);
+    }
+  };
+
+  const currentHour = useMemo(() => new Date().getHours(), []);
+
   const initialReport = useMemo(() => {
-    return analyzeStoreBills(bills, "2026-11-15", products).fullReportTa;
-  }, [bills, products]);
+    return analyzeStoreBills(bills, "2026-11-15", products, weather, currentHour).fullReportTa;
+  }, [bills, products, weather, currentHour]);
 
   const [messages, setMessages] = useState<Message[]>(() => [
     {
@@ -76,8 +122,8 @@ export function AIAssistantScreen({
   const msgCounter = useRef(0);
 
   const analysis: StoreAIAnalysis = useMemo(() => {
-    return analyzeStoreBills(bills, "2026-11-15", products);
-  }, [bills, products]);
+    return analyzeStoreBills(bills, "2026-11-15", products, weather, currentHour);
+  }, [bills, products, weather, currentHour]);
 
   // Scroll to bottom on message
   useEffect(() => {
@@ -173,7 +219,14 @@ export function AIAssistantScreen({
       timestamp: "இப்போது",
     };
 
-    const reply = answerStoreAIQuestion(q, bills, "2026-11-15", products);
+    const reply = answerStoreAIQuestion(
+      q,
+      bills,
+      "2026-11-15",
+      products,
+      weather,
+      currentHour,
+    );
 
     const aiMsg: Message = {
       id: `ai_msg_${count}`,
@@ -233,6 +286,144 @@ export function AIAssistantScreen({
         <div className="ai-status-pill">
           <span className="live-dot"></span>
           <span>Sarvam AI & Grounded Tamil Voice Active</span>
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* LIVE CLIMATE, WEATHER & TIME STORE GUIDE (OPEN-METEO)   */}
+      {/* ======================================================== */}
+      <div className="weather-guide-card">
+        <div className="weather-header">
+          <div className="weather-header-left">
+            <span className="weather-main-emoji">{weather.emoji}</span>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="weather-temp-num">{weather.tempC}°C</span>
+                <span className="weather-condition-label">
+                  {isTamil ? weather.conditionLabelTa : weather.conditionLabelEn}
+                </span>
+              </div>
+              <small style={{ color: "#64748b", fontSize: 11 }}>
+                {weather.city} · {weather.updatedAt}
+              </small>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span className="weather-online-badge">
+              <span className="live-dot"></span>
+              <span>
+                {weather.source === "online"
+                  ? isTamil ? "நேரடி ஆன்லைன் தகவல்" : "Live Online Data"
+                  : isTamil ? "பரிசோதனை வானிலை" : "Simulated Weather"}
+              </span>
+            </span>
+            <button
+              className="weather-preset-pill"
+              onClick={() => handleSelectWeather("online")}
+              disabled={weatherLoading}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+            >
+              <RefreshCw size={12} className={weatherLoading ? "spin" : ""} />
+              <span>{isTamil ? "ஆன்லைன் புதுப்பி" : "Sync Live"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Climate Metrics Row */}
+        <div className="weather-meta-row">
+          <span>💧 {isTamil ? "ஈரப்பதம்:" : "Humidity:"} <strong>{weather.humidity}%</strong></span>
+          <span>🌧️ {isTamil ? "மழை அளவு:" : "Rainfall:"} <strong>{weather.precipitationMm} mm</strong></span>
+          <span>💨 {isTamil ? "காற்று வேகம்:" : "Wind:"} <strong>{weather.windSpeedKmH} km/h</strong></span>
+          <span>
+            ⏰ {isTamil ? "இயக்க நேரம்:" : "Time Window:"}{" "}
+            <strong>
+              {currentHour < 11
+                ? (isTamil ? "காலை வேளை (07:00 - 11:00)" : "Morning Rush (07-11)")
+                : currentHour < 15
+                ? (isTamil ? "மதிய மந்தமான வேளை (11:00 - 15:00)" : "Afternoon Slump (11-15)")
+                : currentHour < 19
+                ? (isTamil ? "மாலை பீக் வேளை (15:00 - 19:00)" : "Evening Rush (15-19)")
+                : (isTamil ? "இரவு வேளை (19:00 - 22:00)" : "Night (19-22)")}
+            </strong>
+          </span>
+        </div>
+
+        {/* Weather Preset Selector Bar */}
+        <div className="weather-presets-bar">
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>
+            {isTamil ? "வானிலை மாதிரி தேர்வு:" : "Test Weather:"}
+          </span>
+          {[
+            { id: "online", label: isTamil ? "🌐 நேரடி ஆன்லைன்" : "🌐 Live Online" },
+            { id: "rain", label: "🌧️ மழை / குளிர் (Rainy)" },
+            { id: "hot", label: "☀️ கடும் வெயில் (Hot Summer)" },
+            { id: "cloudy", label: "⛅ மேகமூட்டம் (Cloudy)" },
+            { id: "pleasant", label: "🍃 மிதமான இதமான (Pleasant)" },
+          ].map((preset) => (
+            <button
+              key={preset.id}
+              className={`weather-preset-pill ${weatherPreset === preset.id ? "active" : ""}`}
+              onClick={() => handleSelectWeather(preset.id)}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Live Retail Advice Box */}
+        <div className="weather-advice-box">
+          <div className="weather-advice-title">
+            <CloudSun size={17} style={{ color: "#0284c7" }} />
+            <span>{analysis.weatherAdvice.title}</span>
+          </div>
+          <p className="weather-advice-text">{analysis.weatherAdvice.adviceText}</p>
+          <div className="recommended-items-row">
+            <span style={{ fontWeight: 700, color: "#166534" }}>
+              {isTamil ? "பரிந்துரைக்கப்படும் பொருட்கள்:" : "High-Demand Items:"}
+            </span>
+            {analysis.weatherAdvice.recommendedItems.map((item, idx) => (
+              <span key={idx} className="rec-item-badge">
+                ✓ {item}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* 6 SALES REPORTS PERFORMANCE BREAKDOWN (MULTI-DAY TREND) */}
+      {/* ======================================================== */}
+      <div className="six-day-card">
+        <div className="six-day-header">
+          <h3 className="six-day-title">
+            <Layers size={18} style={{ color: "var(--navy)" }} />
+            <span>
+              {isTamil
+                ? "6 நாள் விற்பனை அறிக்கைகளின் ஒப்பீடு (6 Sales Reports Trend)"
+                : "6-Day Sales Reports Performance Trend"}
+            </span>
+          </h3>
+          <div style={{ fontSize: 12, color: "#64748b" }}>
+            {isTamil
+              ? `6 நாள் மொத்த வசூல்: ₹${analysis.total6DayRevenue} | தினசரி சராசரி: ₹${analysis.avg6DayDailyRevenue}`
+              : `Total 6-Day Revenue: ₹${analysis.total6DayRevenue} | Daily Avg: ₹${analysis.avg6DayDailyRevenue}`}
+          </div>
+        </div>
+
+        <div className="six-day-grid">
+          {analysis.sixDayReports.map((r, i) => (
+            <div key={i} className={`day-box ${r.date === "2026-11-15" ? "is-today" : ""}`}>
+              <span className="day-date">
+                {r.date === "2026-11-15" ? (isTamil ? "இன்று (15 Nov)" : "Today") : r.date.slice(5)}
+              </span>
+              <strong className="day-rev">₹{r.revenue}</strong>
+              <small className="day-sub">{r.billsCount} bills</small>
+              <small style={{ fontSize: 9.5, color: "#0284c7", fontWeight: 600 }}>
+                {r.topItem}
+              </small>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -401,24 +592,28 @@ export function AIAssistantScreen({
           </span>
           {[
             {
-              label: isTamil ? "🎙️ இன்றைய முழு அறிக்கை" : "Daily Report",
-              q: "இன்றைய முழு விற்பனை அறிக்கை என்ன?",
+              label: isTamil ? "🌤️ வானிலைக்கேற்ப என்ன விற்கலாம்?" : "Weather Demand",
+              q: "இன்றைய வானிலை மற்றும் தட்பவெப்பத்திற்கு என்ன விற்கலாம்?",
             },
             {
-              label: isTamil ? "📉 நேற்றை விட எவ்வளவு கம்மியாச்சு?" : "Sales Dip vs Yesterday",
-              q: "நேற்றை விட இன்று எவ்வளவு கம்மியாகியுள்ளது?",
+              label: isTamil ? "🤖 நேரடி வழிகாட்டி (Smart Guide)" : "Store Guide",
+              q: "இன்றைய நேரடி வழிகாட்டி உதவி சொல்லுங்கள்",
+            },
+            {
+              label: isTamil ? "📊 6 நாள் விற்பனை அறிக்கை" : "6-Day Report",
+              q: "6 நாள் விற்பனை அறிக்கை விவரம் கொடுங்கள்",
             },
             {
               label: isTamil ? "⏰ எந்த நேரத்துல சேல்ஸ் சரிந்தது?" : "Time Window Dip",
               q: "எந்த நேரத்தில் விற்பனை சரிந்தது அல்லது மந்தமாக இருந்தது?",
             },
             {
-              label: isTamil ? "🛍️ எந்த பொருள் அதிகம் விற்றது?" : "Top Items",
-              q: "எந்த பொருள் அதிகம் மற்றும் குறைவாக விற்றது?",
+              label: isTamil ? "📉 நேற்றை விட எவ்வளவு கம்மியாச்சு?" : "Sales Dip",
+              q: "நேற்றை விட இன்று எவ்வளவு கம்மியாகியுள்ளது?",
             },
             {
-              label: isTamil ? "💡 விற்பனையை கூட்ட என்ன யோசனை?" : "Offer Advice",
-              q: "விற்பனையை அதிகரிக்க AI யோசனை என்ன?",
+              label: isTamil ? "🛍️ அதிகம் விற்ற பொருள் எது?" : "Top Items",
+              q: "எந்த பொருள் அதிகம் மற்றும் குறைவாக விற்றது?",
             },
           ].map((item, i) => (
             <button

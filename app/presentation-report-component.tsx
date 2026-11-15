@@ -226,42 +226,44 @@ export function PresentationReportScreen({
             Comparing today&apos;s transaction volume against matching historical weekday medians across operational windows:
           </p>
 
-          <table className="report-table">
-            <thead>
-              <tr>
-                <th>Time Window</th>
-                <th>Today&apos;s Bills</th>
-                <th>Today&apos;s Revenue</th>
-                <th>Historical Median</th>
-                <th>Performance Status</th>
-                <th>AI Diagnostic Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analysis.timeWindows.map((win, idx) => (
-                <tr key={idx} className={win.isFlagged ? "flagged-row" : ""}>
-                  <td><strong>{win.windowLabel}</strong></td>
-                  <td>{win.todayCount}</td>
-                  <td>₹{win.todayRevenue}</td>
-                  <td>{win.historicalMedianCount} bills</td>
-                  <td>
-                    {win.isFlagged ? (
-                      <span className="table-badge badge-alert">
-                        ⚠️ {win.dipPercent}% Dip Flagged
-                      </span>
-                    ) : (
-                      <span className="table-badge badge-normal">
-                        ✓ Steady / Peak
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    <small>{win.statusTa}</small>
-                  </td>
+          <div className="table-responsive">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Time Window</th>
+                  <th>Today&apos;s Bills</th>
+                  <th>Today&apos;s Revenue</th>
+                  <th>Historical Median</th>
+                  <th>Performance Status</th>
+                  <th>AI Diagnostic Note</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {analysis.timeWindows.map((win, idx) => (
+                  <tr key={idx} className={win.isFlagged ? "flagged-row" : ""}>
+                    <td><strong>{win.windowLabel}</strong></td>
+                    <td>{win.todayCount}</td>
+                    <td>₹{win.todayRevenue}</td>
+                    <td>{win.historicalMedianCount} bills</td>
+                    <td>
+                      {win.isFlagged ? (
+                        <span className="table-badge badge-alert">
+                          ⚠️ {win.dipPercent}% Dip Flagged
+                        </span>
+                      ) : (
+                        <span className="table-badge badge-normal">
+                          ✓ Steady / Peak
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <small>{win.statusTa}</small>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {analysis.flaggedDipWindows.length > 0 && (
             <div className="report-callout alert-callout">
@@ -341,34 +343,36 @@ export function PresentationReportScreen({
             5. Product Mix & Menu Performance
           </h3>
 
-          <table className="report-table">
-            <thead>
-              <tr>
-                <th>Item Name (Tamil / English)</th>
-                <th>Price</th>
-                <th>Units Sold Today</th>
-                <th>Total Revenue</th>
-                <th>Revenue Share</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analysis.productSalesList.map((p, idx) => (
-                <tr key={idx}>
-                  <td>
-                    <strong>{p.nameTa}</strong> <small>({p.name})</small>
-                  </td>
-                  <td>₹{p.units > 0 ? Math.round(p.revenue / p.units) : "—"}</td>
-                  <td><strong>{p.units}</strong></td>
-                  <td>₹{p.revenue}</td>
-                  <td>
-                    {analysis.todayRevenue > 0
-                      ? Math.round((p.revenue / analysis.todayRevenue) * 100)
-                      : 0}%
-                  </td>
+          <div className="table-responsive">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Item Name (Tamil / English)</th>
+                  <th>Price</th>
+                  <th>Units Sold Today</th>
+                  <th>Total Revenue</th>
+                  <th>Revenue Share</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {analysis.productSalesList.map((p, idx) => (
+                  <tr key={idx}>
+                    <td>
+                      <strong>{p.nameTa}</strong> <small>({p.name})</small>
+                    </td>
+                    <td>₹{p.units > 0 ? Math.round(p.revenue / p.units) : "—"}</td>
+                    <td><strong>{p.units}</strong></td>
+                    <td>₹{p.revenue}</td>
+                    <td>
+                      {analysis.todayRevenue > 0
+                        ? Math.round((p.revenue / analysis.todayRevenue) * 100)
+                        : 0}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         {/* 6. Indic Voice & Sarvam AI Integration */}

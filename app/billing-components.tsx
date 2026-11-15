@@ -375,7 +375,7 @@ export function BillingScreen({
         </div>
 
         {/* Right Column: POS Cart & Checkout */}
-        <div className="pos-cart-pane">
+        <div id="pos-cart-panel" className="pos-cart-pane">
           <div className="cart-header">
             <div className="cart-title-row">
               <ShoppingCart size={18} />
@@ -505,6 +505,21 @@ export function BillingScreen({
           )}
         </div>
       </div>
+
+      {/* Mobile Floating Cart Summary Button */}
+      {cart.length > 0 && !qrModalOpen && (
+        <button
+          type="button"
+          className="mobile-cart-float-bar"
+          onClick={() => {
+            const el = document.getElementById("pos-cart-panel");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }}
+        >
+          <span>🛒 {totalQuantity} {isTamil ? "பொருட்கள்" : "Items"} · ₹{totalAmount}</span>
+          <span>{isTamil ? "பில் பார்க்க / பணம் செலுத்த →" : "View Cart & Pay →"}</span>
+        </button>
+      )}
 
       {/* ========================================== */}
       {/* PAYTM QR CODE & SOUNDBOX MODAL */}
@@ -763,6 +778,10 @@ export function AnalyticsScreen({
     return computeSalesAnalytics(bills, selectedDate, products);
   }, [bills, selectedDate, products]);
 
+  const availableDates = useMemo(() => {
+    return [...new Set(bills.map((b) => b.date))].sort().reverse();
+  }, [bills]);
+
   // Voice playback triggers
   const handlePlayVoice = (text: string) => {
     setSpokenTranscript(text);
@@ -817,10 +836,16 @@ export function AnalyticsScreen({
             {isTamil ? "தேதி:" : "Date:"}
           </span>
           {[
-            { id: "2026-11-15", label: isTamil ? "இன்று (15 Nov)" : "Today" },
-            { id: "2026-11-14", label: isTamil ? "நேற்று (14 Nov)" : "Yesterday" },
-            { id: "2026-11-13", label: "13 Nov" },
-            { id: "all", label: isTamil ? "அனைத்து நாட்கள்" : "All Time" },
+            ...availableDates.map((d, idx) => ({
+              id: d,
+              label:
+                idx === 0
+                  ? isTamil ? `இன்று (${d.slice(8)} Nov)` : `Today (${d.slice(8)} Nov)`
+                  : idx === 1
+                  ? isTamil ? `நேற்று (${d.slice(8)} Nov)` : `Yesterday (${d.slice(8)} Nov)`
+                  : `${d.slice(8)} Nov`,
+            })),
+            { id: "all", label: isTamil ? "அனைத்து 6 நாட்கள்" : "All 6 Days" },
           ].map((d) => (
             <button
               key={d.id}
