@@ -757,24 +757,84 @@ export function playPaytmChime(): void {
   }
 }
 
+let activeAudioPlayer: HTMLAudioElement | null = null;
+
+export function stopSpeaking(): void {
+  if (activeAudioPlayer) {
+    activeAudioPlayer.pause();
+    activeAudioPlayer.currentTime = 0;
+    activeAudioPlayer = null;
+  }
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+}
+
 /**
- * Plays Tamil voice utterance with Web Speech Synthesis
+ * Speaks an utterance in Tamil, Hindi, or English using Sarvam AI neural TTS (bulbul:v3)
+ * with graceful fallback to browser Web Speech Synthesis.
  */
-export function speakTamil(
+export async function speakTamil(
   text: string,
   onStart?: () => void,
   onEnd?: () => void,
   lang: "en-IN" | "hi-IN" | "ta-IN" = "ta-IN",
-): void {
+): Promise<void> {
+  stopSpeaking();
+
+  // 1. Try Sarvam AI neural voice (bulbul:v3) first
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetch("/api/ai-tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, lang }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as {
+          success?: boolean;
+          audio?: string;
+          mime?: string;
+        };
+        if (data.success && data.audio) {
+          const audio = new Audio(`data:${data.mime || "audio/mpeg"};base64,${data.audio}`);
+          activeAudioPlayer = audio;
+          if (onStart) audio.onplay = () => onStart();
+          audio.onended = () => {
+            activeAudioPlayer = null;
+            if (onEnd) onEnd();
+          };
+          audio.onerror = () => {
+            activeAudioPlayer = null;
+            fallbackWebSpeech(text, onStart, onEnd, lang);
+          };
+          await audio.play();
+          return;
+        }
+      }
+    } catch {
+      // Network or sandbox error, proceed to fallback
+    }
+  }
+
+  // 2. Fallback to browser Web Speech Synthesis
+  fallbackWebSpeech(text, onStart, onEnd, lang);
+}
+
+function fallbackWebSpeech(
+  text: string,
+  onStart?: () => void,
+  onEnd?: () => void,
+  lang: "en-IN" | "hi-IN" | "ta-IN" = "ta-IN",
+) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     if (onEnd) onEnd();
     return;
   }
 
-  window.speechSynthesis.cancel(); // cancel any ongoing speech
+  window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
 
-  // Try finding matching language voice (ta, hi, en)
   const voices = window.speechSynthesis.getVoices();
   const langPrefix = lang === "hi-IN" ? "hi" : lang === "en-IN" ? "en" : "ta";
   const matchedVoice =
@@ -786,7 +846,7 @@ export function speakTamil(
     utterance.voice = matchedVoice;
   }
   utterance.lang = lang;
-  utterance.rate = 0.95; // slightly slower for maximum clarity
+  utterance.rate = 0.95;
   utterance.pitch = 1.0;
 
   if (onStart) utterance.onstart = onStart;

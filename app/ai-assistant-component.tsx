@@ -7,6 +7,7 @@ import {
   getSavedBills,
   getSavedProducts,
   speakTamil,
+  stopSpeaking,
 } from "@/lib/billing";
 import {
   analyzeStoreBills,
@@ -44,6 +45,8 @@ type Message = {
   text: string;
   timestamp: string;
   topic?: string;
+  model?: string;
+  source?: string;
 };
 
 export function AIAssistantScreen({
@@ -61,6 +64,7 @@ export function AIAssistantScreen({
   const [inputText, setInputText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Live Weather & Climate State (Online Open-Meteo Integration)
   const [weather, setWeather] = useState<LiveWeatherData>(WEATHER_PRESETS.cloudy);
@@ -210,9 +214,9 @@ export function AIAssistantScreen({
   };
 
   // Submit Question to AI
-  const handleAskAI = (queryText: string) => {
+  const handleAskAI = async (queryText: string) => {
     const q = queryText.trim();
-    if (!q) return;
+    if (!q || isGenerating) return;
 
     msgCounter.current += 1;
     const count = msgCounter.current;
@@ -224,6 +228,83 @@ export function AIAssistantScreen({
       timestamp: isTamil ? "இப்போது" : isHindi ? "अभी" : "Just now",
     };
 
+    setMessages((prev) => [...prev, userMsg]);
+    setInputText("");
+    setIsGenerating(true);
+
+    try {
+      const storeContext = {
+        shopName: "Marina Tea & Snacks",
+        todaySales: analysis.todayRevenue,
+        todayBills: analysis.todayBillsCount,
+        yesterdaySales: analysis.yesterdayRevenue,
+        topProducts: analysis.topProduct
+          ? [
+              {
+                name: isTamil ? analysis.topProduct.nameTa : analysis.topProduct.name,
+                quantity: analysis.topProduct.units,
+                amount: analysis.topProduct.revenue,
+              },
+            ]
+          : [],
+        zeroSaleProducts: products
+          .filter((p) => !bills.some((b) => b.items.some((it) => it.productId === p.id)))
+          .map((p) => (isTamil ? p.nameTa : p.name))
+          .slice(0, 5),
+        inactiveDeadHours: analysis.timeWindows
+          .filter((w) => w.isFlagged)
+          .map((w) => `${w.windowLabel} (₹${w.todayRevenue})`),
+        weather: {
+          temp: weather.tempC,
+          condition: weather.condition,
+          description: isTamil ? weather.conditionLabelTa : weather.conditionLabelEn,
+          timeOfDay: currentHour >= 18 ? "Evening" : currentHour >= 12 ? "Afternoon" : "Morning",
+        },
+        currentTime: `${currentHour}:00`,
+      };
+
+      const res = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: q,
+          lang,
+          storeContext,
+        }),
+      });
+
+      if (res.ok) {
+        const data = (await res.json()) as {
+          success?: boolean;
+          title?: string;
+          answer?: string;
+          topic?: string;
+          source?: string;
+          model?: string;
+        };
+
+        if (data.success && data.answer) {
+          const aiMsg: Message = {
+            id: `ai_msg_${count}`,
+            sender: "ai",
+            title: data.title,
+            text: data.answer,
+            timestamp: isTamil ? "இப்போது" : isHindi ? "अभी" : "Just now",
+            topic: data.topic,
+            source: data.source,
+            model: data.model || "sarvam-105b",
+          };
+          setMessages((prev) => [...prev, aiMsg]);
+          setIsGenerating(false);
+          handlePlayTTS(aiMsg.text);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("AI Chat API error, using local analysis fallback:", err);
+    }
+
+    // Fallback if network or server error
     const reply = answerStoreAIQuestion(
       q,
       bills,
@@ -241,12 +322,11 @@ export function AIAssistantScreen({
       text: reply.activeAnswer,
       timestamp: isTamil ? "இப்போது" : isHindi ? "अभी" : "Just now",
       topic: reply.topic,
+      source: "fallback",
     };
 
-    setMessages((prev) => [...prev, userMsg, aiMsg]);
-    setInputText("");
-
-    // Read answer out loud using TTS in active language
+    setMessages((prev) => [...prev, aiMsg]);
+    setIsGenerating(false);
     handlePlayTTS(aiMsg.text);
   };
 
@@ -262,9 +342,7 @@ export function AIAssistantScreen({
   };
 
   const handleStopTTS = () => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
+    stopSpeaking();
     setIsSpeaking(false);
   };
 
@@ -890,6 +968,7 @@ export function AIAssistantScreen({
                 {m.sender === "ai" ? (
                   <span className="sender-tag ai-tag">
                     <Bot size={14} /> DukaanPulse AI
+                    {m.model && <small className="ai-model-tag">⚡ {m.model}</small>}
                   </span>
                 ) : (
                   <span className="sender-tag user-tag">
@@ -911,15 +990,21 @@ export function AIAssistantScreen({
                 <div className="bubble-actions">
                   <button
                     className="speak-bubble-btn"
-                    onClick={() => handlePlayTTS(m.text)}
+                    onClick={() => (isSpeaking ? handleStopTTS() : handlePlayTTS(m.text))}
                   >
-                    <Volume2 size={15} />
+                    {isSpeaking ? <VolumeX size={15} /> : <Volume2 size={15} />}
                     <span>
-                      {isTamil
-                        ? "தமிழில் கேட்க"
-                        : isHindi
-                          ? "हिंदी में सुनें"
-                          : "Listen in Voice"}
+                      {isSpeaking
+                        ? isTamil
+                          ? "நிறுத்து"
+                          : isHindi
+                            ? "रोकें"
+                            : "Stop"
+                        : isTamil
+                          ? "சர்வம் குரலில் கேட்க"
+                          : isHindi
+                            ? "सर्वम आवाज़ में सुनें"
+                            : "Sarvam Neural Voice"}
                     </span>
                   </button>
                   {m.topic === "time_window" && (
@@ -941,6 +1026,28 @@ export function AIAssistantScreen({
               )}
             </div>
           ))}
+          {isGenerating && (
+            <div className="message-bubble ai-bubble ai-thinking-bubble">
+              <div className="bubble-sender">
+                <span className="sender-tag ai-tag">
+                  <Bot size={14} className="spin-slow" /> DukaanPulse Sarvam AI
+                </span>
+                <span className="bubble-time">
+                  {isTamil ? "ஆராய்கிறது..." : isHindi ? "सोच रहा है..." : "Analyzing..."}
+                </span>
+              </div>
+              <div className="thinking-row">
+                <span className="thinking-pulse"></span>
+                <p className="thinking-label">
+                  {isTamil
+                    ? "சர்வம் AI (sarvam-105b) உங்கள் கடை நேரடித் தரவுகளைப் பரிசீலித்து பதில் தயாரிக்கிறது..."
+                    : isHindi
+                      ? "सर्वम AI (sarvam-105b) आपकी दुकान के लाइव डेटा का विश्लेषण कर रहा है..."
+                      : "Sarvam AI (sarvam-105b) is analyzing your live store metrics & weather..."}
+                </p>
+              </div>
+            </div>
+          )}
           <div ref={chatBottomRef} />
         </div>
 
