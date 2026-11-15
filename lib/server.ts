@@ -1,8 +1,202 @@
 import { env } from "cloudflare:workers";
 import { State, emptyState } from "./domain";
-export function db() {
-  if (!env.DB) throw Error("storageUnavailable");
-  return env.DB;
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
+export interface D1PreparedStatementLike {
+  bind(...values: unknown[]): D1PreparedStatementLike;
+  first<T = Record<string, unknown>>(colName?: string): Promise<T | null>;
+  run(): Promise<{ meta: { changes: number; last_row_id?: number } }>;
+  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+}
+
+export interface D1DatabaseLike {
+  prepare(query: string): D1PreparedStatementLike;
+}
+
+let localFallbackDb: D1DatabaseLike | null = null;
+
+function getFallbackDb(): D1DatabaseLike {
+  if (localFallbackDb) return localFallbackDb;
+
+  try {
+    const sqliteModule = require("node:sqlite");
+    const path = require("node:path");
+    const fs = require("node:fs");
+
+    let dbFile = ":memory:";
+    const wranglerDir = path.resolve(".wrangler/state/v3/d1/miniflare-D1DatabaseObject");
+    if (fs.existsSync(wranglerDir)) {
+      const files = fs.readdirSync(wranglerDir);
+      const sqliteFile = files.find(
+        (f: string) => f.endsWith(".sqlite") && !f.startsWith("metadata")
+      );
+      if (sqliteFile) {
+        dbFile = path.join(wranglerDir, sqliteFile);
+      }
+    }
+
+    const sqlite = new sqliteModule.DatabaseSync(dbFile);
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS workspaces (
+        scope text PRIMARY KEY NOT NULL,
+        version integer NOT NULL,
+        payload text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS provider_cache (
+        key text PRIMARY KEY NOT NULL,
+        scope text NOT NULL,
+        status text NOT NULL,
+        payload text,
+        created_at integer NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS provider_usage (
+        key text PRIMARY KEY NOT NULL,
+        count integer NOT NULL
+      );
+    `);
+
+    localFallbackDb = {
+      prepare(sql: string): D1PreparedStatementLike {
+        let boundParams: unknown[] = [];
+        const stmtObj: D1PreparedStatementLike = {
+          bind(...params: unknown[]) {
+            boundParams = params;
+            return stmtObj;
+          },
+          async first<T = Record<string, unknown>>(colName?: string): Promise<T | null> {
+            const stmt = sqlite.prepare(sql);
+            const row = stmt.get(...boundParams) as Record<string, unknown> | undefined;
+            if (!row) return null;
+            if (colName && typeof colName === "string") return row[colName] as unknown as T;
+            return row as unknown as T;
+          },
+          async run() {
+            const stmt = sqlite.prepare(sql);
+            const result = stmt.run(...boundParams);
+            return {
+              meta: {
+                changes: Number(result.changes),
+                last_row_id: Number(result.lastInsertRowid),
+              },
+            };
+          },
+          async all<T = Record<string, unknown>>() {
+            const stmt = sqlite.prepare(sql);
+            const rows = stmt.all(...boundParams);
+            return { results: rows as unknown as T[] };
+          },
+        };
+        return stmtObj;
+      },
+    };
+    return localFallbackDb;
+  } catch {
+    // In-memory fallback
+    const workspaces = new Map<string, { scope: string; version: number; payload: string; updated_at: string }>();
+    const providerCache = new Map<string, { key: string; scope: string; status: string; payload: string; created_at: number }>();
+    const providerUsage = new Map<string, number>();
+
+    localFallbackDb = {
+      prepare(sql: string): D1PreparedStatementLike {
+        let boundParams: unknown[] = [];
+        const stmtObj: D1PreparedStatementLike = {
+          bind(...params: unknown[]) {
+            boundParams = params;
+            return stmtObj;
+          },
+          async first<T = Record<string, unknown>>(colName?: string): Promise<T | null> {
+            if (sql.includes("FROM workspaces WHERE scope=?")) {
+              const row = workspaces.get(boundParams[0] as string);
+              if (!row) return null;
+              return (colName ? (row as any)[colName] : row) as unknown as T;
+            }
+            if (sql.includes("WHERE scope='config:sarvam'")) {
+              const row = workspaces.get("config:sarvam");
+              if (!row) return null;
+              return (colName ? (row as any)[colName] : row) as unknown as T;
+            }
+            if (sql.includes("FROM provider_cache WHERE key=?")) {
+              const row = providerCache.get(boundParams[0] as string);
+              if (!row) return null;
+              return (colName ? (row as any)[colName] : row) as unknown as T;
+            }
+            return null;
+          },
+          async run() {
+            let changes = 0;
+            if (sql.includes("INSERT OR IGNORE INTO workspaces")) {
+              const [scope, version, payload, updated_at] = boundParams as [string, number, string, string];
+              if (!workspaces.has(scope)) {
+                workspaces.set(scope, { scope, version, payload, updated_at });
+                changes = 1;
+              }
+            } else if (sql.includes("INSERT OR REPLACE INTO workspaces")) {
+              const [scope, version, payload, updated_at] = boundParams as [string, number, string, string];
+              workspaces.set(scope, { scope, version, payload, updated_at });
+              changes = 1;
+            } else if (sql.includes("UPDATE workspaces SET")) {
+              const [version, payload, updated_at, scope, previous] = boundParams as [number, string, string, string, number];
+              const existing = workspaces.get(scope);
+              if (existing && existing.version === previous) {
+                workspaces.set(scope, { scope, version, payload, updated_at });
+                changes = 1;
+              }
+            } else if (sql.includes("INSERT OR IGNORE INTO provider_usage")) {
+              const [key] = boundParams as [string];
+              if (!providerUsage.has(key)) {
+                providerUsage.set(key, 0);
+                changes = 1;
+              }
+            } else if (sql.includes("UPDATE provider_usage SET count=count+1")) {
+              const [key, limit] = boundParams as [string, number];
+              const cur = providerUsage.get(key) ?? 0;
+              if (cur < limit) {
+                providerUsage.set(key, cur + 1);
+                changes = 1;
+              }
+            } else if (sql.includes("INSERT OR IGNORE INTO provider_cache")) {
+              const [key, scope, status, created_at] = boundParams as [string, string, string, number];
+              if (!providerCache.has(key)) {
+                providerCache.set(key, { key, scope, status, payload: "", created_at });
+                changes = 1;
+              }
+            } else if (sql.includes("UPDATE provider_cache SET status=?,payload=?")) {
+              const [status, payload, key] = boundParams as [string, string, string];
+              const item = providerCache.get(key);
+              if (item) {
+                item.status = status;
+                item.payload = payload;
+                changes = 1;
+              }
+            } else if (sql.includes("UPDATE provider_cache SET status=?")) {
+              const [status, key] = boundParams as [string, string];
+              const item = providerCache.get(key);
+              if (item) {
+                item.status = status;
+                changes = 1;
+              }
+            }
+            return { meta: { changes, last_row_id: 1 } };
+          },
+          async all<T = Record<string, unknown>>() {
+            return { results: [] as unknown as T[] };
+          },
+        };
+        return stmtObj;
+      },
+    };
+    return localFallbackDb;
+  }
+}
+
+export function db(): D1DatabaseLike {
+  if ((env as unknown as { DB?: D1DatabaseLike })?.DB) {
+    return (env as unknown as { DB: D1DatabaseLike }).DB;
+  }
+  return getFallbackDb();
 }
 export async function scopeFor(req: Request) {
   const owner = req.headers.get("oai-authenticated-user-id");

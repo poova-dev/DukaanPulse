@@ -10,7 +10,8 @@ export async function GET(req: Request) {
   try {
     const { scope, cookie } = await scopeFor(req);
     return response({ state: await readState(scope) }, 200, cookie);
-  } catch {
+  } catch (err) {
+    console.error("GET /api/state error:", err);
     return response({ error: "storageUnavailable" }, 503);
   }
 }
