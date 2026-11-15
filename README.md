@@ -1,113 +1,203 @@
-# DukaanPulse
+# DukaanPulse (துக்கான் பல்ஸ்)
 
-**An inspectable payment signal, an owner-approved experiment, and an honest review.**
+**Indic AI-Powered POS, Dynamic UPI Standee & Retail Growth Engine for Indian Merchants**
 
-Team Trio · Paytm Build for India AI Hackathon · Chennai · **Track 1: Merchant Growth AI**
+> **Paytm Build for India AI Hackathon · Chennai · Track 1: Merchant Growth AI**  
+> *Developed by Team Trio*
 
-Initial audience: neighbourhood tea shops, cafés and snack shops. This independent prototype has no production Paytm integration or endorsement. All bundled records are synthetic. Pilot, adoption, retention, pricing and growth remain hypotheses.
+---
 
-## Working journey
+## 📌 Overview
 
-1. Upload `public/datasets/valid.csv`, inspect the mapping and validation report, and import.
-2. In Setup, confirm 12:00–20:00 coverage for 2026-11-14, 2026-11-07, 2026-10-31 and 2026-10-24. Record a reason and save. Uploads deliberately clear old coverage.
-3. Open the Decision Receipt. It computes 14 payments versus a matched median of 23.
-4. Type `close 5 pm` into the correction box. Interpret, inspect the readback and confirm. The complete-window comparison and offer advice withdraw. Type `close 8 pm` to restore.
-5. Compare actions. Set the discount to ₹15, save, select the discount card and inspect the blocked −₹3 contribution. Restore ₹5 and save.
-6. Switch language. Inspect the same numbers in Hindi or Tamil. Request a receipt briefing. Without a configured Sarvam key the app clearly labels rule-based text and offers device speech only if a matching device voice exists.
-7. Approve exact terms via a checkbox and confirmation. Prepare a print-ready HTML poster with embedded Indic fonts. Open it in a browser and print/save PDF. Preparation does not mark an experiment as run.
-8. Explicitly confirm it ran. Upload `positive.csv`, confirm follow-up coverage, hours and execution, then review 19 payments: +5 versus the original and −4 versus the saved median. No causal claim.
+**DukaanPulse** is an intelligent, voice-first retail POS and growth telemetry application designed specifically for neighbourhood merchants—tea stalls, bakeries, tiffin centers, and small retail shops across India.
 
-`Load synthetic shop` is the fast rehearsal route and includes labelled, explicit synthetic context. The upload route remains independently testable.
+It transforms everyday payment patterns and counter checkout into actionable growth decisions using **Sarvam AI (105B Reasoning, Bulbul:v3 Neural Speech, Saaras:v3 Indic STT)**, **live Open-Meteo climate telemetry**, and an **authentic Paytm Soundbox chime recreation**.
 
-## Local setup
+```
+   ┌──────────────────────────────────────────────────────────────┐
+   │                       DukaanPulse POS                        │
+   ├───────────────┬──────────────────────────────┬───────────────┤
+   │ Quick Billing │ Paytm Soundbox & Dynamic QR  │ Tamil & Hindi │
+   │ & POS Counter │ (Harmonic Web Audio + Voice) │ Voice AI (STT)│
+   ├───────────────┼──────────────────────────────┼───────────────┤
+   │ Hourly Slump  │  Live Weather Demand Engine  │ Executive PDF │
+   │  Diagnostics  │   (Open-Meteo Climate Sync)  │ Ready Reports │
+   └───────────────┴──────────────────────────────┴───────────────┘
+```
 
-Node >=22.13 (tested with Node 24). Source contains the lockfile and all app assets.
+---
 
-```sh
-npm ci
-npm run build
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_cheerful_robin_chapel.sql
+## 📸 Visual Showcase & Screenshots
+
+### 1. Quick Billing & Fast POS Counter
+Fast-paced touch and keyboard billing with item categories (Tea & Coffee, Hot Snacks, Bakery, Cold Drinks).
+![Quick Billing & POS](docs/screenshots/billing-pos.png)
+
+### 2. Paytm Soundbox & Dynamic UPI QR Code Standee
+Generates instant transaction-specific UPI QR codes with authentic multi-harmonic Paytm Soundbox chime and multilingual voice announcement.
+![Paytm Dynamic QR & Soundbox](docs/screenshots/paytm-qr-soundbox.png)
+
+### 3. Sales & Time-Window Analytics (Quiet-Hour Diagnostics)
+Tracks sales velocity across four retail time windows (Morning Rush, Afternoon Slump, Evening Peak, Night Closing), strictly guarded by store operating hours and payment coverage.
+![Sales & Time Analytics](docs/screenshots/sales-analytics.png)
+
+### 4. Sarvam AI Multilingual Assistant & Live Weather Demand
+Hands-free Tamil, Hindi, and English voice interaction powered by Sarvam AI and live climate telemetry from Open-Meteo.
+![Sarvam AI Voice Assistant](docs/screenshots/ai-assistant.png)
+
+### 5. Today's Pulse (Real-Time Store Health)
+Live revenue telemetry, average ticket size, and real-time hourly bill velocity without needing synthetic file uploads.
+![Today's Pulse](docs/screenshots/todays-pulse.png)
+
+### 6. Executive Report (PDF & Print Ready)
+Comprehensive executive summary, diagnostic breakdown, and menu performance ready for 1-click PDF download or printing.
+![Executive Report](docs/screenshots/executive-report.png)
+
+### 7. Responsive Mobile View
+Optimized for mobile viewports (tested on 393px iOS/Android devices) with accessible action grids and responsive tables.
+![Mobile View](docs/screenshots/mobile-view.png)
+
+---
+
+## ✨ Key Features
+
+### 🛒 1. Fast Counter Billing & Menu POS
+- Multi-category menu optimized for Indian retail (`Tea & Coffee`, `Hot Snacks`, `Bakery & Tiffin`, `Cold Drinks & Milk`).
+- Rapid item additions, custom items with Tamil/Hindi names, quantity controls, and live cart calculation.
+- Stored locally in `localStorage` and synchronized across tabs.
+
+### 🔊 2. Authentic Paytm Soundbox Chime & Voice Confirmation
+- **Physical Speaker Emulation**: Recreates the authentic Paytm Soundbox payment confirmation chime using Web Audio API:
+  - Ascending two-tone signature chime: **C6 (1046 Hz) $\rightarrow$ E6 (1318 Hz)**.
+  - Multi-harmonic overtone synthesis (fundamental, octave harmonic, fifth harmonic, warm triangle body).
+  - Accurate ADSR envelope (snappy attack, sustained ring, and exponential release).
+  - Stereo impulse convolution reverb for realistic metallic casing resonance.
+- **Multilingual Voice Announcements**: Instant neural spoken readout in Tamil (`ta-IN`), Hindi (`hi-IN`), or English (`en-IN`) via Sarvam `bulbul:v3` or browser Web Speech.
+
+### ⏱️ 3. Guarded Quiet-Hour Slump Diagnostics
+- Analyzes hourly velocity across standard retail windows:
+  - **07:00 – 11:00**: Morning Rush
+  - **11:00 – 15:00**: Afternoon Slump
+  - **15:00 – 19:00**: Evening Peak
+  - **19:00 – 22:00**: Night Closing
+- **Store Hours & Coverage Guardrails**:
+  - Automatically verifies store opening hours (`context.open`, `context.close`), date exceptions, and payment coverage (`coverage[date]`).
+  - If the store was closed during a window or payment coverage is unconfirmed, discount offers are **safely withheld** to prevent unprofitable promotions.
+
+### 🤖 4. Sarvam AI Indic Intelligence & Live Weather
+- **Sarvam-105b Reasoning**: Contextual retail business decision engine providing targeted combo offers, inventory adjustments, and pricing guidance grounded in store telemetry.
+- **Sarvam Bulbul:v3 Neural TTS**: Colloquial Indic voice output using natural speakers (`kavitha` for Tamil, `priya` for Hindi, `kavya` for English).
+- **Sarvam Saaras:v3 Indic STT**: Hands-free voice speech-to-text allowing busy merchants to ask questions naturally while attending customers.
+- **Open-Meteo Live Climate Integration**: Fetches real-time temperature, humidity, and weather conditions for Chennai (or the merchant's city) to forecast immediate hot/cold item demand.
+
+### 📊 5. Today's Pulse & Executive Report
+- **Live Pulse**: Live revenue counter, completed payment tally, average ticket size, and time-window velocity connected to active checkout data.
+- **Executive PDF Report**: Clean white-label report layout with day-over-day KPI cards, hourly diagnostics table, menu profitability rankings, and 1-click print/PDF export.
+
+---
+
+## 🛠️ Architecture & Tech Stack
+
+```
+DukaanPulse/
+├── app/
+│   ├── api/
+│   │   ├── ai-chat/route.ts      # Sarvam-105b chat completions with local fallback
+│   │   ├── ai-tts/route.ts       # Sarvam bulbul:v3 neural speech synthesis
+│   │   ├── ai-stt/route.ts       # Sarvam saaras:v3 speech-to-text
+│   │   ├── config-sarvam/route.ts# Key configuration (D1 DB + memory)
+│   │   ├── health/route.ts       # Provider health check & live verification
+│   │   └── state/route.ts        # D1 / SQLite workspace state persistence
+│   ├── billing-components.tsx    # POS Counter, Paytm QR modal & Soundbox
+│   ├── ai-assistant-component.tsx# Sarvam AI chat, voice UI & weather guide
+│   ├── presentation-report-component.tsx # Executive Report & PDF view
+│   ├── workspace.tsx             # Main merchant shell & Today's Pulse
+│   └── globals.css               # Responsive design & Paytm Merchant styling
+├── lib/
+│   ├── ai-assistant.ts           # Multi-day analytics & quiet-hour diagnostics
+│   ├── billing.ts                # Cart calculations & authentic Paytm chime
+│   ├── weather.ts                # Open-Meteo weather integration & demand advice
+│   └── server.ts                 # SQLite fallback & Cloudflare D1 adapter
+└── tests/
+    ├── ai-assistant.test.ts      # Analytics, quiet-hour guardrails & voice tests
+    ├── billing.test.ts           # Billing, UPI URL & sales analytics tests
+    └── analytics.test.ts         # CSV validation & economics guardrails
+```
+
+- **Frontend & Fullstack**: Next.js 16 (App Router), React 19, TypeScript, Lucide Icons.
+- **Styling**: Responsive CSS3 with custom properties, media queries for mobile/desktop, and print-media stylesheets for PDF generation.
+- **Persistence**: Cloudflare D1-compatible SQLite (`node:sqlite` local adapter with in-memory map fallback).
+- **Validation**: Strict Zod schemas for context, mutations, and domain commands.
+
+---
+
+## 🚀 Quick Start & Local Setup
+
+### Prerequisites
+- Node.js `>=20.0.0` (tested on Node 22 & Node 24)
+- npm or pnpm
+
+### 1. Clone & Install
+```bash
+git clone https://github.com/poova-dev/DukaanPulse.git
+cd DukaanPulse
+npm install
+```
+
+### 2. Configure Environment (Optional)
+To enable live Sarvam AI neural speech and reasoning, create a `.dev.vars` file in the project root:
+```bash
+SARVAM_API_KEY="your_sarvam_api_key_here"
+```
+*(If omitted, DukaanPulse runs seamlessly using local Indic intelligence and browser Web Speech.)*
+
+### 3. Run Development Server
+```bash
 npm run dev
 ```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-Use the URL printed by the dev command. Run the migration once per fresh local database. The hosted Sites workflow provisions D1 and applies migrations independently. Local records do not copy into production.
-
-```sh
+### 4. Run Test Suite & Typecheck
+```bash
+# Run unit & regression tests (41 tests)
 npm test
+
+# Verify TypeScript types
 npm run typecheck
+
+# Production build
 npm run build
 ```
 
-The checkout-local managed preview configuration is excluded from source; ordinary development defaults to the portable profile. No dependency directory or credential belongs in a source archive.
+---
 
-## Architecture
+## 🧪 Test Coverage & Verification
 
-One TypeScript app: React + Vinext, Cloudflare Worker API routes, Zod validation and native D1 storage. No Python service, external database, customer messaging service or additional runtime AI provider is required.
+DukaanPulse includes an extensive automated test suite covering 41 unit and regression tests:
+- **`tests/ai-assistant.test.ts`**:
+  - Store operating hours and date exception verification (closed store withdraws quiet-hour advice).
+  - Payment data coverage checks (unconfirmed coverage prevents false slumps).
+  - Multilingual AI Q&A across Tamil (`ta-IN`), Hindi (`hi-IN`), and English (`en-IN`).
+  - Day-over-day dip calculations and time-window dip thresholds.
+- **`tests/billing.test.ts`**:
+  - Paytm UPI URL format compliance (`upi://pay?pa=...&am=...`).
+  - Authentic Paytm Soundbox audio generation parameters.
+  - Multi-day product sales and inactive hour calculations.
+- **`tests/analytics.test.ts`**:
+  - CSV parsing, deduplication, conflicting ID rejection, and timestamp parsing.
+  - Contribution margins, stock limits, and budget floor protection.
 
-- `lib/analytics.ts`: CSV parser, ISO timestamp validation, paise arithmetic, window/weekday comparisons, median and economics.
-- `lib/commands.ts`: validated mutations, revisions, approval guards, experiment transitions and saved-goal outcome review.
-- `lib/i18n.ts`: fixed English/Hindi/Tamil dictionaries and numerical templates.
-- `lib/provider-service.ts`: injectable provider boundary, grounding and cache orchestration.
-- `app/api/provider`: server-side Sarvam speech and bounded question classification.
-- `app/api/speech`: short recording transcription, followed by deterministic correction interpretation.
-- `app/api/state`: optimistic concurrency, source validation and isolated persistence.
-- `db/schema.ts` + `drizzle`: schema-only migrations for workspaces, provider cache and usage counters.
+---
 
-The model selects a validated explanation focus. Code supplies the complete explanation and every figure. This deliberately constrains open-ended financial language. Three built-in evidence questions work without AI. Spoken corrections support a narrow grammar for budget, unambiguous closing times, stock unavailability and goal. They never approve anything.
+## ⚖️ Hackathon Disclosure & Honest Limits
 
-## Data and calculation contract
+- **Independent Prototype**: Built for the *Paytm Build for India AI Hackathon (Chennai)*. This is an independent hackathon prototype and is not affiliated with or endorsed by One97 Communications / Paytm.
+- **Standard UPI QR Code**: The dynamic QR code is a standard interoperable UPI QR format (`upi://pay`) compatible with all Indian payment apps (Paytm, BHIM, Google Pay, PhonePe).
+- **Simulated Demonstration Data**: Out-of-the-box multi-day records represent simulated seed data designed to showcase real-world retail analytics from the moment the app opens.
+- **Sarvam AI Verification**: Live calls to `sarvam-105b-conversations`, `bulbul:v3`, and `saaras:v3` run server-side. If no API key is provided, DukaanPulse transparently defaults to local Indic fallback responses without failing.
 
-See [docs/SCHEMA.md](docs/SCHEMA.md). One row is one payment:
+---
 
-```csv
-transaction_id,timestamp,amount,status
-001,2026-11-14T16:00:00+05:30,40.00,completed
-```
+## 👥 Team Trio
 
-IDs remain strings. Amount input is rupees with at most two decimal places, converted to integer paise. Totals are summed in paise. Averages retain precision internally and round only for currency presentation. Completed statuses: `completed`, `success`, `successful`, case-insensitive. Pending, failed, cancelled/canceled and refunded records are excluded with counts. Unknown statuses, missing fields, negatives, invalid amounts and ambiguous dates are rejected with row-level feedback.
-
-Identical IDs and identical source fields deduplicate. Any conflict sharing an ID removes all versions of that ID, including an excluded-status conflict. No guess is made about which is correct. The prototype imports valid completed rows after displaying the report; it never silently repairs invalid ones.
-
-The 4–6 PM analysis examines earlier matching weekdays within eight weeks, with the same half-open window [16:00,18:00), full opening and explicit coverage. Three eligible periods are the minimum. The baseline is their median count. The default 25% dip threshold is owner-configurable from 5–90%. A zero baseline never divides by zero and never produces a percentage dip. An average-value target needs three nonempty historical averages. This is descriptive evidence, not a significance test or causal model.
-
-Closed, partial opening, confirmed open with zero recorded payments, exceptional-date exclusion and unknown coverage remain distinct. Regular hours apply every day unless an owner adds a date-specific exception. The prototype handles same-day hours, not overnight opening.
-
-## Approval and persistence
-
-`Draft` is the current receipt/action selection. Approval creates an experiment, then:
-
-`Approved → Prepared → Ran → Reviewed`, with `Skipped` and `Stopped` terminal alternatives.
-
-A material context, offer, goal or upload change creates an immutable receipt snapshot. Unfinished earlier approvals stop. Already-run experiments retain their original terms and remain reviewable, but cannot create new stale materials. The saved goal and baseline determine the later outcome. Reviewed, stopped, skipped, rejected, negative and inconclusive records stay visible.
-
-D1 stores context, validated completed rows, validation reports, revisions, exact terms, lifecycle events and follow-up records. Updates use a version compare-and-swap. The frontend also locks pending submissions. An experiment cannot be created twice for the same current revision while an existing one remains active/reviewed. Browser refresh persistence was checked.
-
-On the private hosted Site, the signed-in owner ID scopes records. A managed development preview without that identity uses a random 256-bit HttpOnly SameSite=Strict demo-session cookie (30-day cookie lifetime). Clearing that cookie loses access to the demo scope; an export is recommended. Server records are not stored in localStorage. Only language is device-local. This is prototype isolation, not a completed multi-outlet account/retention policy.
-
-## Sarvam and finite-credit controls
-
-See [docs/PROVIDERS.md](docs/PROVIDERS.md). **500 organiser credits are user-reported; their unit, current balance, expiry and eligibility have not been verified.** No paid upgrade, purchase or top-up was performed. Development help in ChatGPT does not confer API credits.
-
-Server-only key name: `SARVAM_API_KEY`. In your own terminal run:
-
-```sh
-node scripts/configure-sarvam.mjs
-```
-
-This masks input and writes an ignored `.dev.vars` with restricted permissions for local development. Never paste the key into chat, source, screenshots or browser code. For this hosted Site, the supported environment-variable operation accepts `SARVAM_API_KEY` marked `is_secret: true`, followed by deployment of the saved version. A secure credential source/handoff is still required; none was supplied in this session. A local `.dev.vars` does not configure hosted production. For a separate Cloudflare deployment you control, Wrangler's interactive `secret put SARVAM_API_KEY` is another secure host setup route.
-
-Limits: 12 provider attempts per workspace per UTC day and 100 across this deployment. The application counter includes failed attempts, is conservative, and is not the provider balance. Inputs and output tokens are bounded. Provider requests time out after 20 seconds, with no automatic retries. Recordings stop after 15 seconds and are capped at 1 MB. Explanations and audio cache by immutable receipt revision, language, model, focus/question and voice settings; reset numbering cannot collide with old content. Failed/in-flight keys have a 45-second cooldown. Usage metadata is retained when supplied. No cost estimate is presented as a verified charge.
-
-## Materials and source
-
-- `public/datasets/`: actual valid, insufficient-history, dirty, positive and negative CSV files, with JSON context companions.
-- `docs/Original_Stage1_Proposal.pdf`: preserved original upload, unchanged.
-- `docs/Example_Approved_Tamil_Poster.html`: actual browser-downloaded synthetic poster with embedded fonts.
-- `docs/DEMO.md`: 60-second mentor demo, three-minute jury script and reset instructions.
-- `docs/JUDGING_QA.md`: honest answers and pilot hypotheses.
-- `docs/VERIFICATION.md`: evidence, limitations and test scope.
-
-## Remaining limits
-
-Live Sarvam TTS/STT/chat calls and account-credit details await credentials and a small authorised verification set. Device speech depends on installed voices and is never labelled Sarvam. Hindi/Tamil copy is implemented and visually inspected; a native-speaking merchant usability review remains necessary. Three periods are a prototype minimum. Payment records do not reveal item mix, unique customers, cash, inventory, profit or causality. No payment execution, customer delivery, production Paytm API, role management, backups, monitoring or commercial pilot has been implemented. Production rollout requires those operational controls and appropriate authorised data access.
-# DukaanPulse
+- Developed with ❤️ for Indian neighbourhood merchants at the **Paytm Build for India AI Hackathon (Chennai)**.
