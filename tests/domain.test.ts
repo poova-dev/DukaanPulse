@@ -192,6 +192,7 @@ test("coverage gaps and exceptional history require new evidence", () => {
 test("insufficient history abstains and median handles zero", () => {
   const c = sampleContext(),
     a = analyze(parseCSV(sampleCSV("insufficient")).rows, c);
+  assert.equal(a.eligible, true);
   delete c.coverage["2026-10-24"];
   assert.equal(
     analyze(parseCSV(sampleCSV("insufficient")).rows, c).eligible,

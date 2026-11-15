@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Product,
   Bill,
-  DEFAULT_PRODUCTS,
   CATEGORY_LABELS,
   ProductCategory,
   buildPaytmUPIUrl,
@@ -28,7 +27,6 @@ import {
   AlertTriangle,
   Clock3,
   TrendingUp,
-  TrendingDown,
   Printer,
   Sparkles,
   ArrowRight,
@@ -37,7 +35,6 @@ import {
   Calendar,
   IndianRupee,
   Store,
-  Layers,
   ChevronRight,
   Flame,
   Award,
@@ -61,7 +58,7 @@ export function BillingScreen({
   const isTamil = lang === "ta-IN";
   const isHindi = lang === "hi-IN";
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(() => getSavedProducts());
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -82,11 +79,6 @@ export function BillingScreen({
   const [billTotalAmount, setBillTotalAmount] = useState<number>(0);
   const [paymentConfirmed, setPaymentConfirmed] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-
-  // Initialize products
-  useEffect(() => {
-    setProducts(getSavedProducts());
-  }, []);
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
@@ -180,7 +172,6 @@ export function BillingScreen({
 
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10);
-    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     const billId = `DP-${dateStr.replace(/-/g, "")}-${String(Math.floor(100 + Math.random() * 900))}`;
 
     setCurrentBillId(billId);
@@ -447,6 +438,14 @@ export function BillingScreen({
                   <div className="cart-row-total">
                     ₹{item.product.price * item.quantity}
                   </div>
+                  <button
+                    type="button"
+                    className="cart-row-delete"
+                    onClick={() => removeFromCart(item.product.id)}
+                    title="Remove item"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               ))
             )}
@@ -543,6 +542,7 @@ export function BillingScreen({
               {/* QR Code Container */}
               <div className="standee-qr-frame">
                 {qrCodeDataUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={qrCodeDataUrl}
                     alt="Paytm Dynamic QR"
@@ -596,8 +596,8 @@ export function BillingScreen({
                           : "Payment Received Successfully!"}
                       </h3>
                       <p className="voice-transcript">
-                        🔊 "Paytm-இல் {billTotalAmount} ரூபாய் பெறப்பட்டது!
-                        நன்றி!"
+                        🔊 &ldquo;Paytm-இல் {billTotalAmount} ரூபாய் பெறப்பட்டது!
+                        நன்றி!&rdquo;
                       </p>
                     </div>
                   </div>
@@ -754,15 +754,10 @@ export function AnalyticsScreen({
   const isHindi = lang === "hi-IN";
 
   const [selectedDate, setSelectedDate] = useState<string>("2026-11-15");
-  const [bills, setBills] = useState<Bill[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [bills] = useState<Bill[]>(() => getSavedBills());
+  const [products] = useState<Product[]>(() => getSavedProducts());
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [spokenTranscript, setSpokenTranscript] = useState<string>("");
-
-  useEffect(() => {
-    setBills(getSavedBills());
-    setProducts(getSavedProducts());
-  }, []);
 
   const analytics = useMemo(() => {
     return computeSalesAnalytics(bills, selectedDate, products);
@@ -1124,7 +1119,7 @@ export function AnalyticsScreen({
               </tr>
             </thead>
             <tbody>
-              {analytics.productStats.map((p, idx) => (
+              {analytics.productStats.map((p) => (
                 <tr key={p.productId}>
                   <td className="product-cell">
                     <span className="p-emoji">{p.emoji}</span>

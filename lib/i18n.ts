@@ -1,4 +1,4 @@
-import { Lang, Analysis, Context, Experiment, money, time } from "./domain";
+import { Lang, Analysis, Context, Experiment, money } from "./domain";
 import { economics } from "./analytics";
 // UI copy is reviewed as one three-language catalog. Numerals always come from the canonical state.
 const catalog: Record<string, [string, string]> = {
@@ -8,6 +8,7 @@ const catalog: Record<string, [string, string]> = {
   "Quick Billing & POS": ["त्वरित बिलिंग और POS", "பில்லிங் & விற்பனை பதிவு (POS)"],
   "Sales & Time Analytics": ["बिक्री और समय विश्लेषण", "விற்பனை & நேர பகுப்பாய்வு"],
   "AI Assistant (Tamil Voice)": ["AI सहायक (तमिल आवाज़)", "AI வணிக உதவியாளர் & குரல்"],
+  "Executive Report (PDF)": ["कार्यकारी रिपोर्ट (PDF)", "முழுமையான வணிக அறிக்கை (PDF)"],
   "Setup & upload": ["सेटअप और अपलोड", "அமைப்பு & பதிவேற்றம்"],
   "Decision Receipt": ["निर्णय रसीद", "முடிவு ரசீது"],
   "Compare actions": ["विकल्प देखें", "செயல்களை ஒப்பிடுங்கள்"],

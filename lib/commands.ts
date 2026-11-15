@@ -6,7 +6,6 @@ import {
   Outcome,
   clone,
   validDate,
-  Lang,
 } from "./domain";
 import { analyze, economics, parseCSV } from "./analytics";
 import { sampleCSV, sampleContext } from "./fixtures";
@@ -340,7 +339,7 @@ export function execute(
         followup !== null && original !== null ? followup - original : null,
       deltaBaseline =
         followup !== null && baseline !== null ? followup - baseline : null;
-    const { rows: allRows, preview, ...report } = data;
+    const { rows: allRows, preview: _preview, ...report } = data;
     e.outcome = {
       at,
       date: cmd.date,
