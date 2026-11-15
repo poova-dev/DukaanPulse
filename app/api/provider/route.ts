@@ -5,6 +5,7 @@ import {
   readState,
   response,
   settings,
+  ensureSarvamKeyLoaded,
   reserveUsage,
   digest,
   providerFetch,
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
     const input = schema.parse(await req.json()),
       { scope } = await scopeFor(req),
       s = await readState(scope);
+    await ensureSarvamKeyLoaded();
     const result = await receiptProvider(input, s, scope, !!settings().key, {
       key: digest,
       read: async (k) => {

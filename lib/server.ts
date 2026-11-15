@@ -59,10 +59,53 @@ export function response(data: unknown, status = 200, cookie?: string) {
 export function sameOrigin(req: Request) {
   return req.headers.get("sec-fetch-site") !== "cross-site";
 }
+
+let runtimeMemoryKey = "";
+
+export function setMemoryKey(k: string) {
+  runtimeMemoryKey = k;
+  if (typeof globalThis !== "undefined") {
+    (globalThis as unknown as { __SARVAM_KEY?: string }).__SARVAM_KEY = k;
+  }
+}
+
+export function getMemoryKey(): string {
+  if (runtimeMemoryKey) return runtimeMemoryKey;
+  if (typeof globalThis !== "undefined") {
+    const gk = (globalThis as unknown as { __SARVAM_KEY?: string }).__SARVAM_KEY;
+    if (gk) return gk;
+  }
+  if (typeof process !== "undefined" && process.env?.SARVAM_API_KEY) {
+    return process.env.SARVAM_API_KEY;
+  }
+  return "";
+}
+
+export async function ensureSarvamKeyLoaded(): Promise<string> {
+  const current = getMemoryKey();
+  if (current) return current;
+  try {
+    const row = await db()
+      .prepare("SELECT payload FROM workspaces WHERE scope='config:sarvam'")
+      .first<{ payload: string }>();
+    if (row?.payload) {
+      const data = JSON.parse(row.payload) as { key?: string };
+      if (data?.key) {
+        setMemoryKey(data.key);
+        return data.key;
+      }
+    }
+  } catch {
+    // Ignore database lookup errors if table not ready
+  }
+  return "";
+}
+
 export function settings() {
   const e = env as unknown as Record<string, string | undefined>;
+  const activeKey = getMemoryKey() || e.SARVAM_API_KEY || "";
   return {
-    key: e.SARVAM_API_KEY || "",
+    key: activeKey,
     tts: "bulbul:v3",
     stt: "saaras:v3",
     chat: "sarvam-105b",

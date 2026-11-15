@@ -1,5 +1,6 @@
-import { response, settings } from "@/lib/server";
+import { response, settings, ensureSarvamKeyLoaded } from "@/lib/server";
 export async function GET() {
+  await ensureSarvamKeyLoaded();
   const c = settings();
   return response({
     provider: "Sarvam",

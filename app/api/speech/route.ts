@@ -2,6 +2,7 @@ import {
   scopeFor,
   readState,
   settings,
+  ensureSarvamKeyLoaded,
   response,
   reserveUsage,
   providerFetch,
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
       lang = form.get("lang");
     if (s.revision !== revision)
       return response({ error: "staleApproval" }, 409);
+    await ensureSarvamKeyLoaded();
     if (!settings().key) return response({ error: "notConfigured" }, 503);
     if (
       !(file instanceof File) ||
